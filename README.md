@@ -151,6 +151,10 @@ shortcut script context cannot write config. Release and test-toggle also
 invoke resident KWin actions; app-side release removes the persisted claim
 entry before invoking the resident release action.
 
+After a successful app-picked claim, DropMan shows a large rounded confirmation
+notice near the top of the current screen. The notice does not accept focus and
+fades after five seconds.
+
 The starter profiles use identity fields observed on Geshem:
 
 - Firefox: `resourceClass=firefox_firefox`, `resourceName=firefox`

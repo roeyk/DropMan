@@ -373,6 +373,7 @@ void KWinBackend::claimPickedWindow(Profile &profile)
     if (invokeKWinShortcut(id)) {
         profile.claimed = true;
         emit logMessage(QStringLiteral("Invoked KWin action %1").arg(id));
+        emit claimSucceeded(profile.name, caption.isEmpty() ? profile.name : caption);
     } else {
         emit logMessage(QStringLiteral("Could not invoke KWin action %1").arg(id));
     }

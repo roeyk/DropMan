@@ -1,14 +1,20 @@
 #include "MainWindow.h"
 #include "ProfileStore.h"
 
+#include <QCursor>
+#include <QGraphicsOpacityEffect>
+#include <QGuiApplication>
 #include <QHeaderView>
 #include <QHBoxLayout>
 #include <QItemSelectionModel>
 #include <QLabel>
+#include <QPropertyAnimation>
 #include <QPlainTextEdit>
 #include <QProcess>
 #include <QPushButton>
+#include <QScreen>
 #include <QTableView>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -58,6 +64,7 @@ MainWindow::MainWindow(QWidget *parent)
     resize(920, 640);
 
     connect(&m_backend, &KWinBackend::logMessage, this, &MainWindow::appendLog);
+    connect(&m_backend, &KWinBackend::claimSucceeded, this, &MainWindow::showClaimNotice);
 
     connect(m_claimButton, &QPushButton::clicked, this, [this]() {
         if (auto *profile = selectedProfile()) {
@@ -147,6 +154,84 @@ void MainWindow::saveProfiles()
     } else {
         appendLog(QStringLiteral("Could not start qdbus6 to reconfigure KWin"));
     }
+}
+
+void MainWindow::showClaimNotice(const QString &profileName, const QString &windowCaption)
+{
+    if (m_claimNotice) {
+        m_claimNotice->close();
+        m_claimNotice = nullptr;
+    }
+
+    auto *notice = new QWidget(nullptr,
+                               Qt::Tool
+                                   | Qt::FramelessWindowHint
+                                   | Qt::WindowStaysOnTopHint
+                                   | Qt::WindowDoesNotAcceptFocus);
+    notice->setObjectName(QStringLiteral("ClaimNotice"));
+    notice->setAttribute(Qt::WA_DeleteOnClose);
+    notice->setAttribute(Qt::WA_TranslucentBackground);
+    notice->setWindowTitle(QStringLiteral("DropMan claim confirmation"));
+
+    auto *layout = new QVBoxLayout(notice);
+    layout->setContentsMargins(28, 20, 28, 20);
+    layout->setSpacing(6);
+
+    auto *title = new QLabel(QStringLiteral("DropMan claimed %1").arg(profileName), notice);
+    title->setAlignment(Qt::AlignCenter);
+    title->setStyleSheet(QStringLiteral("font-size: 30px; font-weight: 800; color: white;"));
+
+    auto *caption = new QLabel(windowCaption, notice);
+    caption->setAlignment(Qt::AlignCenter);
+    caption->setWordWrap(true);
+    caption->setStyleSheet(QStringLiteral("font-size: 17px; color: rgba(255, 255, 255, 210);"));
+
+    layout->addWidget(title);
+    layout->addWidget(caption);
+
+    notice->setStyleSheet(QStringLiteral(
+        "#ClaimNotice {"
+        "  background-color: rgba(20, 22, 28, 235);"
+        "  border: 2px solid rgba(255, 255, 255, 180);"
+        "  border-radius: 18px;"
+        "}"));
+
+    auto *effect = new QGraphicsOpacityEffect(notice);
+    effect->setOpacity(1.0);
+    notice->setGraphicsEffect(effect);
+
+    QScreen *screen = QGuiApplication::screenAt(QCursor::pos());
+    if (!screen) {
+        screen = QGuiApplication::primaryScreen();
+    }
+    const QRect available = screen ? screen->availableGeometry() : QRect(0, 0, 1280, 720);
+    const int width = qMin(available.width() - 80, 980);
+    const int height = 118;
+    notice->resize(qMax(width, 520), height);
+    notice->move(available.x() + (available.width() - notice->width()) / 2,
+                 available.y() + 24);
+
+    m_claimNotice = notice;
+    notice->show();
+    notice->raise();
+
+    QTimer::singleShot(5000, notice, [this, notice, effect]() {
+        if (!notice->isVisible()) {
+            return;
+        }
+
+        auto *animation = new QPropertyAnimation(effect, "opacity", notice);
+        animation->setDuration(650);
+        animation->setStartValue(1.0);
+        animation->setEndValue(0.0);
+        connect(animation, &QPropertyAnimation::finished, notice, [this, notice]() {
+            if (m_claimNotice == notice) {
+                m_claimNotice = nullptr;
+            }
+            notice->close();
+        });
+        animation->start(QAbstractAnimation::DeleteWhenStopped);
+    });
 }
 
 void MainWindow::refreshSelectionState()

@@ -18,4 +18,5 @@ public:
 
 signals:
     void logMessage(const QString &message);
+    void claimSucceeded(const QString &profileName, const QString &windowCaption);
 };

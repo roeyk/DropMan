@@ -9,6 +9,7 @@ class QLabel;
 class QPlainTextEdit;
 class QPushButton;
 class QTableView;
+class QWidget;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -22,6 +23,7 @@ private:
     void loadProfiles();
     void saveProfiles();
     void refreshSelectionState();
+    void showClaimNotice(const QString &profileName, const QString &windowCaption);
 
     ProfileModel m_profiles;
     KWinBackend m_backend;
@@ -33,4 +35,5 @@ private:
     QPushButton *m_toggleButton = nullptr;
     QPushButton *m_reloadButton = nullptr;
     QPushButton *m_saveButton = nullptr;
+    QWidget *m_claimNotice = nullptr;
 };
