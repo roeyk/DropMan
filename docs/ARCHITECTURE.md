@@ -104,6 +104,15 @@ The app controls the live runtime by invoking KWin-owned UI/actions:
 - `DropMan-Release-<id>` releases the claimed window;
 - `DropMan-<id>` toggles the claimed window.
 
+## Animation Boundary
+
+Smooth slide animation should not be implemented in the current shortcut
+script. Geshem testing showed that this KWin script context does not expose
+the animation or timer APIs needed for reliable transitions. The script should
+continue to own claims, shortcuts, state, and final geometry, while a future
+KWin effect/runtime component performs compositor-side animation when
+available. See [ANIMATION.md](ANIMATION.md).
+
 ## Roadmap Direction
 
 1. Build a Qt6/CMake app with profile editor and logging pane.

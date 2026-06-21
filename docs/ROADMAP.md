@@ -21,7 +21,8 @@
   animation.
 - Verify current-desktop/current-activity show behavior across multiple Plasma
   desktops.
-- Add smooth slide animation after geometry is stable.
+- Add a KWin effect/runtime component for smooth slide animation; keep instant
+  geometry as fallback.
 - Add a proper visual overlay/effect for claim confirmation.
 - Replace the placeholder app backend with real communication to the resident
   KWin component.
