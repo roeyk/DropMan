@@ -98,6 +98,19 @@ function trySet(window, property, value) {
     return false;
 }
 
+function tryCall(object, method, argument) {
+    try {
+        if (object && typeof object[method] === "function") {
+            object[method](argument);
+            return true;
+        }
+    } catch (error) {
+        log("could not call " + method + ": " + error);
+    }
+
+    return false;
+}
+
 function readConfig() {
     // KWin scripts cannot consistently read package data files across Plasma
     // versions from JavaScript alone, so the committed JSON is the source
@@ -203,6 +216,14 @@ function hiddenGeometry(visible, binding) {
     return hidden;
 }
 
+function geometryText(geometry) {
+    if (!geometry) {
+        return "<none>";
+    }
+    return geometry.x + "," + geometry.y + " "
+        + geometry.width + "x" + geometry.height;
+}
+
 function prepareWindow(window, binding) {
     const hints = binding.windowHints || {};
 
@@ -223,10 +244,38 @@ function prepareWindow(window, binding) {
     }
 }
 
+function activateWindow(window, binding) {
+    trySet(window, "minimized", false);
+
+    const activated = tryCall(workspace, "activateWindow", window)
+        || trySet(workspace, "activeWindow", window)
+        || trySet(window, "active", true);
+
+    const raised = tryCall(workspace, "raiseWindow", window)
+        || tryCall(window, "raise");
+
+    log("activation for " + binding.id
+        + " activated=" + activated
+        + " raised=" + raised
+        + " activeWindow=" + asString(workspace.activeWindow && workspace.activeWindow.caption));
+}
+
 function claimWindow(binding, window) {
     binding.window = window;
-    binding.visible = true;
     prepareWindow(window, binding);
+
+    const visible = visibleGeometry(window, binding);
+    if (visible) {
+        const hidden = hiddenGeometry(visible, binding);
+        trySet(window, "frameGeometry", hidden);
+        binding.visible = false;
+        log("claimed and hid " + binding.id
+            + " visible=" + geometryText(visible)
+            + " hidden=" + geometryText(hidden));
+    } else {
+        binding.visible = true;
+        log("claimed " + binding.id + " without changing geometry: no output geometry available");
+    }
 
     if (window.closed) {
         window.closed.connect(() => {
@@ -258,12 +307,17 @@ function toggleBinding(binding) {
     prepareWindow(window, binding);
 
     if (binding.visible) {
-        trySet(window, "frameGeometry", hiddenGeometry(visible, binding));
+        const hidden = hiddenGeometry(visible, binding);
+        trySet(window, "frameGeometry", hidden);
         binding.visible = false;
+        log("hid " + binding.id
+            + " visible=" + geometryText(visible)
+            + " hidden=" + geometryText(hidden));
     } else {
         trySet(window, "frameGeometry", visible);
-        trySet(workspace, "activeWindow", window);
+        activateWindow(window, binding);
         binding.visible = true;
+        log("showed " + binding.id + " visible=" + geometryText(visible));
     }
 }
 

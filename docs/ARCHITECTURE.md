@@ -48,6 +48,10 @@ Claimed-window mutations should stay minimal in early runtime testing. Edge
 geometry movement is the first behavior to validate; hints such as no-border,
 skip-taskbar, all-desktops, or keep-above are opt-in profile settings.
 
+Claiming a window parks it in hidden edge geometry immediately. That makes the
+next profile toggle a visible "show" action instead of requiring two toggles
+after claim.
+
 ## Roadmap Direction
 
 1. Build a Qt6/CMake app with profile editor and logging pane.
