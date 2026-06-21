@@ -33,6 +33,27 @@ bool invokeKWinShortcut(const QString &id)
     return QProcess::execute(QStringLiteral("qdbus6"), shortArgs) == 0;
 }
 
+bool runKWinWindowPicker()
+{
+    const QStringList qualifiedArgs{
+        QStringLiteral("org.kde.KWin"),
+        QStringLiteral("/KWin"),
+        QStringLiteral("org.kde.KWin.queryWindowInfo")
+    };
+
+    if (QProcess::execute(QStringLiteral("qdbus6"), qualifiedArgs) == 0) {
+        return true;
+    }
+
+    const QStringList shortArgs{
+        QStringLiteral("org.kde.KWin"),
+        QStringLiteral("/KWin"),
+        QStringLiteral("queryWindowInfo")
+    };
+
+    return QProcess::execute(QStringLiteral("qdbus6"), shortArgs) == 0;
+}
+
 }
 
 KWinBackend::KWinBackend(QObject *parent)
@@ -50,6 +71,13 @@ QString KWinBackend::activeWindowIdentity() const
 void KWinBackend::claimActiveWindow(Profile &profile)
 {
     const QString id = actionId(QStringLiteral("Claim-"), profile);
+
+    emit logMessage(QStringLiteral("Starting KWin window picker for %1").arg(profile.name));
+    if (!runKWinWindowPicker()) {
+        emit logMessage(QStringLiteral("KWin window picker was not available; could not claim %1").arg(profile.name));
+        return;
+    }
+
     if (invokeKWinShortcut(id)) {
         profile.claimed = true;
         emit logMessage(QStringLiteral("Invoked KWin action %1").arg(id));

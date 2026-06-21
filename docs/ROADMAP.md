@@ -15,6 +15,7 @@
   and removed profiles.
 - Validate app button invocation of KWin actions through KGlobalAccel on
   Plasma.
+- Validate KWin window-picker behavior for app-driven claim on Plasma.
 - Confirm backend behavior on Geshem's live Plasma session.
 - Tighten Firefox matching to avoid profile-picker dialogs.
 - Persist selected window identity where KWin exposes a stable identifier.

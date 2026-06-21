@@ -135,9 +135,9 @@ When profiles are saved, the app also mirrors the same JSON into KWin's
 KWin component reads that mirrored config on load and falls back to packaged
 defaults if it is missing or invalid.
 
-The app's claim, release, and test-toggle buttons invoke the resident KWin
-actions through KDE's global shortcut service. KWin remains the owner of live
-window state.
+The app's claim button starts KWin's window picker, then invokes the resident
+claim action through KDE's global shortcut service. Release and test-toggle
+also invoke resident KWin actions. KWin remains the owner of live window state.
 
 The starter profiles use identity fields observed on Geshem:
 

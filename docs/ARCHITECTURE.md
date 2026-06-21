@@ -78,10 +78,9 @@ group, and requests a KWin reconfigure. The resident KWin component reads that
 mirrored config on load and falls back to packaged defaults if it is missing or
 invalid.
 
-The app controls the live runtime by invoking KWin-registered actions through
-KGlobalAccel:
+The app controls the live runtime by invoking KWin-owned UI/actions:
 
-- `DropMan-Claim-<id>` claims the active matching window;
+- claim starts KWin's window picker, then invokes `DropMan-Claim-<id>`;
 - `DropMan-Release-<id>` releases the claimed window;
 - `DropMan-<id>` toggles the claimed window.
 
