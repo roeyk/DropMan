@@ -164,13 +164,14 @@ void MainWindow::showClaimNotice(const QString &profileName, const QString &wind
     }
 
     auto *notice = new QWidget(nullptr,
-                               Qt::Tool
+                               Qt::Window
                                    | Qt::FramelessWindowHint
                                    | Qt::WindowStaysOnTopHint
                                    | Qt::WindowDoesNotAcceptFocus);
     notice->setObjectName(QStringLiteral("ClaimNotice"));
     notice->setAttribute(Qt::WA_DeleteOnClose);
     notice->setAttribute(Qt::WA_TranslucentBackground);
+    notice->setAttribute(Qt::WA_ShowWithoutActivating);
     notice->setWindowTitle(QStringLiteral("DropMan claim confirmation"));
 
     auto *layout = new QVBoxLayout(notice);
@@ -210,6 +211,13 @@ void MainWindow::showClaimNotice(const QString &profileName, const QString &wind
     notice->resize(qMax(width, 520), height);
     notice->move(available.x() + (available.width() - notice->width()) / 2,
                  available.y() + 24);
+
+    appendLog(QStringLiteral("Showing claim notice for %1 at %2,%3 %4x%5")
+                  .arg(profileName)
+                  .arg(notice->x())
+                  .arg(notice->y())
+                  .arg(notice->width())
+                  .arg(notice->height()));
 
     m_claimNotice = notice;
     notice->show();
