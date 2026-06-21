@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "restore-previous-focus-20260621";
+const SCRIPT_VERSION = "geometry-aware-toggle-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -590,6 +590,12 @@ function toggleBinding(binding) {
 
     prepareWindow(window, binding);
 
+    const liveGeometry = currentFrameGeometry(window);
+    const liveParkedOffscreen = isParkedOffscreen(liveGeometry, binding, window);
+    if (liveParkedOffscreen) {
+        binding.visible = false;
+    }
+
     if (binding.visible) {
         if (!windowOnCurrentContext(window)) {
             moveWindowToCurrentContext(window, binding);
@@ -600,7 +606,7 @@ function toggleBinding(binding) {
             return;
         }
 
-        const current = currentFrameGeometry(window);
+        const current = liveGeometry || currentFrameGeometry(window);
         if (current) {
             binding.shownGeometry = current;
         }
@@ -617,7 +623,9 @@ function toggleBinding(binding) {
         trySet(window, "frameGeometry", binding.shownGeometry);
         activateWindow(window, binding);
         binding.visible = true;
-        log("showed " + binding.id + " shown=" + geometryText(binding.shownGeometry));
+        log("showed " + binding.id
+            + " shown=" + geometryText(binding.shownGeometry)
+            + " recoveredOffscreen=" + liveParkedOffscreen);
     }
 }
 
