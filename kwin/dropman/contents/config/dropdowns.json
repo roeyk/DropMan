@@ -7,6 +7,7 @@
             "edge": "top",
             "widthPercent": 100,
             "heightPercent": 45,
+            "claimShortcut": "Meta+Shift+K",
             "match": {
                 "resourceClass": "org.kde.konsole",
                 "resourceName": "konsole"
@@ -19,19 +20,21 @@
             "edge": "right",
             "widthPercent": 40,
             "heightPercent": 100,
+            "claimShortcut": "Meta+Shift+F",
             "match": {
                 "resourceClass": "firefox_firefox",
                 "resourceName": "firefox",
-                "caption": "Firefox"
+                "excludeCaption": "Choose a profile"
             }
         },
         {
             "id": "uplink",
             "name": "Uplink",
             "shortcut": "Meta+U",
-            "edge": "right",
-            "widthPercent": 55,
-            "heightPercent": 100,
+            "edge": "top",
+            "widthPercent": 100,
+            "heightPercent": 45,
+            "claimShortcut": "Meta+Shift+U",
             "match": {
                 "resourceClass": "Uplink",
                 "resourceName": "Uplink"

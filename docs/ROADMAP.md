@@ -16,6 +16,8 @@
 - Persist selected window identity where KWin exposes a stable identifier.
 - Make visible toggle behavior reliable before animation.
 - Add smooth slide animation after geometry is stable.
+- Replace the placeholder app backend with real communication to the resident
+  KWin component.
 
 ## Later
 

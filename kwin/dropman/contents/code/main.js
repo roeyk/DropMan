@@ -23,6 +23,7 @@ const DEFAULT_CONFIG = {
             widthPercent: 100,
             heightPercent: 45,
             claimShortcut: "Meta+Shift+K",
+            windowHints: {},
             match: {
                 resourceClass: "org.kde.konsole",
                 resourceName: "konsole"
@@ -39,17 +40,18 @@ const DEFAULT_CONFIG = {
             match: {
                 resourceClass: "firefox_firefox",
                 resourceName: "firefox",
-                caption: "Firefox"
+                excludeCaption: "Choose a profile"
             }
         },
         {
             id: "uplink",
             name: "Uplink",
             shortcut: "Meta+U",
-            edge: "right",
-            widthPercent: 55,
-            heightPercent: 100,
+            edge: "top",
+            widthPercent: 100,
+            heightPercent: 45,
             claimShortcut: "Meta+Shift+U",
+            windowHints: {},
             match: {
                 resourceClass: "Uplink",
                 resourceName: "Uplink"
@@ -117,12 +119,20 @@ function matchesField(window, key, expected) {
     return windowText(window, key).indexOf(lower(expected)) >= 0;
 }
 
+function excludesField(window, key, expected) {
+    if (!expected) {
+        return false;
+    }
+    return windowText(window, key).indexOf(lower(expected)) >= 0;
+}
+
 function matchesBinding(window, binding) {
     const match = binding.match || {};
     return matchesField(window, "resourceClass", match.resourceClass)
         && matchesField(window, "resourceName", match.resourceName)
         && matchesField(window, "windowClass", match.windowClass)
-        && matchesField(window, "caption", match.caption);
+        && matchesField(window, "caption", match.caption)
+        && !excludesField(window, "caption", match.excludeCaption);
 }
 
 function activeOutputGeometry(window) {
@@ -193,18 +203,30 @@ function hiddenGeometry(visible, binding) {
     return hidden;
 }
 
-function prepareWindow(window) {
-    trySet(window, "noBorder", true);
-    trySet(window, "keepAbove", true);
-    trySet(window, "skipTaskbar", true);
-    trySet(window, "skipPager", true);
-    trySet(window, "onAllDesktops", true);
+function prepareWindow(window, binding) {
+    const hints = binding.windowHints || {};
+
+    if (hints.noBorder === true) {
+        trySet(window, "noBorder", true);
+    }
+    if (hints.keepAbove === true) {
+        trySet(window, "keepAbove", true);
+    }
+    if (hints.skipTaskbar === true) {
+        trySet(window, "skipTaskbar", true);
+    }
+    if (hints.skipPager === true) {
+        trySet(window, "skipPager", true);
+    }
+    if (hints.onAllDesktops === true) {
+        trySet(window, "onAllDesktops", true);
+    }
 }
 
 function claimWindow(binding, window) {
     binding.window = window;
     binding.visible = true;
-    prepareWindow(window);
+    prepareWindow(window, binding);
 
     if (window.closed) {
         window.closed.connect(() => {
@@ -233,7 +255,7 @@ function toggleBinding(binding) {
         return;
     }
 
-    prepareWindow(window);
+    prepareWindow(window, binding);
 
     if (binding.visible) {
         trySet(window, "frameGeometry", hiddenGeometry(visible, binding));
@@ -277,6 +299,7 @@ function registerBinding(config) {
         heightPercent: config.heightPercent,
         match: config.match || {},
         claimShortcut: config.claimShortcut,
+        windowHints: config.windowHints || {},
         window: null,
         visible: false
     };

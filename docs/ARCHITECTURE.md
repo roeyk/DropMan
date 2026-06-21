@@ -39,6 +39,15 @@ Observed identity fields on Geshem:
 - Konsole: `resourceClass="org.kde.konsole"`, `resourceName="konsole"`
 - Yakuake: `resourceClass="org.kde.yakuake"`, `resourceName="yakuake"`
 
+Firefox profile-picker dialogs must be excluded before claim, since they can
+share the same class/name fields as real browser windows. The starter Firefox
+profile intentionally avoids a positive caption match; the explicit active
+window claim is the binding decision.
+
+Claimed-window mutations should stay minimal in early runtime testing. Edge
+geometry movement is the first behavior to validate; hints such as no-border,
+skip-taskbar, all-desktops, or keep-above are opt-in profile settings.
+
 ## Roadmap Direction
 
 1. Build a Qt6/CMake app with profile editor and logging pane.

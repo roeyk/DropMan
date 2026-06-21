@@ -12,7 +12,7 @@ ProfileModel::ProfileModel(QObject *parent)
             .match = MatchRules{
                 .resourceClass = QStringLiteral("firefox_firefox"),
                 .resourceName = QStringLiteral("firefox"),
-                .captionFilter = QStringLiteral("Firefox")
+                .captionExclude = QStringLiteral("Choose a profile")
             }
         },
         Profile{
@@ -45,7 +45,7 @@ int ProfileModel::rowCount(const QModelIndex &parent) const
 
 int ProfileModel::columnCount(const QModelIndex &parent) const
 {
-    return parent.isValid() ? 0 : 6;
+    return parent.isValid() ? 0 : 7;
 }
 
 QVariant ProfileModel::data(const QModelIndex &index, int role) const
@@ -69,6 +69,8 @@ QVariant ProfileModel::data(const QModelIndex &index, int role) const
         case 4:
             return profile.match.resourceClass;
         case 5:
+            return profile.match.captionExclude;
+        case 6:
             return profile.claimed ? QStringLiteral("claimed") : QStringLiteral("unclaimed");
         default:
             return {};
@@ -96,6 +98,8 @@ QVariant ProfileModel::headerData(int section, Qt::Orientation orientation, int 
     case 4:
         return QStringLiteral("resourceClass");
     case 5:
+        return QStringLiteral("exclude caption");
+    case 6:
         return QStringLiteral("Claim");
     default:
         return {};

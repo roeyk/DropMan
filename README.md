@@ -41,6 +41,13 @@ docs/                         design notes and roadmap
 
 ## Build
 
+Dependencies:
+
+- CMake
+- Qt 6 Widgets development files
+- KDE Extra CMake Modules
+- KDE Frameworks 6: I18n, ConfigCore, ConfigWidgets
+
 ```bash
 cmake -S . -B build
 cmake --build build

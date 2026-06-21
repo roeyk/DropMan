@@ -6,6 +6,7 @@ struct MatchRules {
     QString resourceClass;
     QString resourceName;
     QString captionFilter;
+    QString captionExclude;
 };
 
 struct Profile {
