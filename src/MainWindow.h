@@ -19,6 +19,8 @@ public:
 private:
     Profile *selectedProfile();
     void appendLog(const QString &message);
+    void loadProfiles();
+    void saveProfiles();
     void refreshSelectionState();
 
     ProfileModel m_profiles;
@@ -29,4 +31,6 @@ private:
     QPushButton *m_claimButton = nullptr;
     QPushButton *m_releaseButton = nullptr;
     QPushButton *m_toggleButton = nullptr;
+    QPushButton *m_reloadButton = nullptr;
+    QPushButton *m_saveButton = nullptr;
 };

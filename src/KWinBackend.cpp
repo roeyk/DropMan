@@ -34,5 +34,5 @@ void KWinBackend::testToggle(const Profile &profile)
 
     emit logMessage(QStringLiteral("Test toggle requested for '%1' on %2 edge at %3%.")
                         .arg(profile.name, profile.edge)
-                        .arg(profile.sizePercent));
+                        .arg(profile.heightPercent));
 }

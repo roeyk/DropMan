@@ -11,6 +11,7 @@
 
 ## Next
 
+- Connect the resident KWin component to app-saved `profiles.json`.
 - Confirm backend behavior on Geshem's live Plasma session.
 - Tighten Firefox matching to avoid profile-picker dialogs.
 - Persist selected window identity where KWin exposes a stable identifier.

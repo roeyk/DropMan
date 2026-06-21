@@ -1,4 +1,5 @@
 #include "MainWindow.h"
+#include "ProfileStore.h"
 
 #include <QHeaderView>
 #include <QHBoxLayout>
@@ -35,10 +36,14 @@ MainWindow::MainWindow(QWidget *parent)
     m_claimButton = new QPushButton(QStringLiteral("Claim active window"), buttonRow);
     m_releaseButton = new QPushButton(QStringLiteral("Release claimed window"), buttonRow);
     m_toggleButton = new QPushButton(QStringLiteral("Test toggle"), buttonRow);
+    m_reloadButton = new QPushButton(QStringLiteral("Reload profiles"), buttonRow);
+    m_saveButton = new QPushButton(QStringLiteral("Save profiles"), buttonRow);
 
     buttonLayout->addWidget(m_claimButton);
     buttonLayout->addWidget(m_releaseButton);
     buttonLayout->addWidget(m_toggleButton);
+    buttonLayout->addWidget(m_reloadButton);
+    buttonLayout->addWidget(m_saveButton);
     buttonLayout->addStretch(1);
     layout->addWidget(buttonRow);
 
@@ -73,13 +78,14 @@ MainWindow::MainWindow(QWidget *parent)
         }
     });
 
+    connect(m_reloadButton, &QPushButton::clicked, this, &MainWindow::loadProfiles);
+    connect(m_saveButton, &QPushButton::clicked, this, &MainWindow::saveProfiles);
+
     connect(m_table->selectionModel(), &QItemSelectionModel::selectionChanged, this, [this]() {
         refreshSelectionState();
     });
 
-    if (m_profiles.rowCount() > 0) {
-        m_table->selectRow(0);
-    }
+    loadProfiles();
     refreshSelectionState();
     appendLog(QStringLiteral("DropMan started. Design rule: match many, bind one."));
 }
@@ -96,6 +102,30 @@ Profile *MainWindow::selectedProfile()
 void MainWindow::appendLog(const QString &message)
 {
     m_log->appendPlainText(message);
+}
+
+void MainWindow::loadProfiles()
+{
+    QString error;
+    m_profiles.setProfiles(ProfileStore::load(&error));
+    m_table->resizeColumnsToContents();
+    if (m_profiles.rowCount() > 0) {
+        m_table->selectRow(0);
+    }
+
+    appendLog(QStringLiteral("Loaded profiles from %1%2")
+                  .arg(ProfileStore::configPath(),
+                       error.isEmpty() ? QString() : QStringLiteral(" (fallback: %1)").arg(error)));
+}
+
+void MainWindow::saveProfiles()
+{
+    QString error;
+    if (ProfileStore::save(m_profiles.profiles(), &error)) {
+        appendLog(QStringLiteral("Saved profiles to %1").arg(ProfileStore::configPath()));
+    } else {
+        appendLog(QStringLiteral("Could not save profiles: %1").arg(error));
+    }
 }
 
 void MainWindow::refreshSelectionState()

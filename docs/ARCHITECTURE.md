@@ -9,7 +9,8 @@ KWin owns the two hard problems for this project:
 ## Components
 
 - Qt desktop app: profile editor, claim/release/test actions, and logging.
-- Profile model: persistent user-facing dropdown definitions.
+- Profile model: persistent user-facing dropdown definitions saved as
+  `profiles.json`.
 - KWin backend: the only layer that talks to Plasma/KWin identity, shortcuts,
   and geometry.
 - KWin prototype package: experimental bridge until the backend is finalized.
@@ -21,7 +22,9 @@ Each binding has:
 - a stable `id`;
 - a display `name`;
 - a KDE shortcut string;
+- a claim shortcut string;
 - an edge: `top`, `right`, `bottom`, or `left`;
+- a mode, currently `preserve_geometry`;
 - size percentages for a future explicit resize mode;
 - match criteria for `resourceClass`, `resourceName`, `windowClass`, or
   `caption`.
@@ -69,10 +72,13 @@ Claiming a window parks it in hidden edge geometry immediately. That makes the
 next profile toggle a visible "show" action instead of requiring two toggles
 after claim.
 
+The app now owns profile editing and persistence. The KWin prototype still
+uses packaged defaults until the app-to-KWin bridge is implemented.
+
 ## Roadmap Direction
 
 1. Build a Qt6/CMake app with profile editor and logging pane.
 2. Wire claim/release/test actions to the isolated KWin backend.
-3. Persist profiles.
+3. Teach the resident KWin component to load/reload app-saved profiles.
 4. Improve visible toggle behavior and preserved edge geometry.
 5. Add animation and packaging.

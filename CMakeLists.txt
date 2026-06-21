@@ -26,6 +26,8 @@ qt_add_executable(dropman
     src/Profile.h
     src/ProfileModel.cpp
     src/ProfileModel.h
+    src/ProfileStore.cpp
+    src/ProfileStore.h
     src/KWinBackend.cpp
     src/KWinBackend.h
 )

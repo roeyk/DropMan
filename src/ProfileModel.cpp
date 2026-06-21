@@ -1,41 +1,12 @@
 #include "ProfileModel.h"
+#include "ProfileStore.h"
+
+#include <utility>
 
 ProfileModel::ProfileModel(QObject *parent)
     : QAbstractTableModel(parent)
 {
-    m_profiles = {
-        Profile{
-            .name = QStringLiteral("Firefox"),
-            .shortcut = QStringLiteral("Meta+F"),
-            .edge = QStringLiteral("right"),
-            .sizePercent = 40,
-            .match = MatchRules{
-                .resourceClass = QStringLiteral("firefox_firefox"),
-                .resourceName = QStringLiteral("firefox"),
-                .captionExclude = QStringLiteral("Choose a profile")
-            }
-        },
-        Profile{
-            .name = QStringLiteral("Uplink"),
-            .shortcut = QStringLiteral("Meta+U"),
-            .edge = QStringLiteral("top"),
-            .sizePercent = 45,
-            .match = MatchRules{
-                .resourceClass = QStringLiteral("Uplink"),
-                .resourceName = QStringLiteral("Uplink")
-            }
-        },
-        Profile{
-            .name = QStringLiteral("Konsole"),
-            .shortcut = QStringLiteral("Meta+K"),
-            .edge = QStringLiteral("top"),
-            .sizePercent = 45,
-            .match = MatchRules{
-                .resourceClass = QStringLiteral("org.kde.konsole"),
-                .resourceName = QStringLiteral("konsole")
-            }
-        }
-    };
+    m_profiles = ProfileStore::defaultProfiles();
 }
 
 int ProfileModel::rowCount(const QModelIndex &parent) const
@@ -45,7 +16,7 @@ int ProfileModel::rowCount(const QModelIndex &parent) const
 
 int ProfileModel::columnCount(const QModelIndex &parent) const
 {
-    return parent.isValid() ? 0 : 7;
+    return parent.isValid() ? 0 : 10;
 }
 
 QVariant ProfileModel::data(const QModelIndex &index, int role) const
@@ -56,21 +27,27 @@ QVariant ProfileModel::data(const QModelIndex &index, int role) const
 
     const auto &profile = m_profiles.at(index.row());
 
-    if (role == Qt::DisplayRole) {
+    if (role == Qt::DisplayRole || role == Qt::EditRole) {
         switch (index.column()) {
         case 0:
-            return profile.name;
+            return profile.id;
         case 1:
-            return profile.shortcut;
+            return profile.name;
         case 2:
-            return profile.edge;
+            return profile.shortcut;
         case 3:
-            return QStringLiteral("%1%").arg(profile.sizePercent);
+            return profile.claimShortcut;
         case 4:
-            return profile.match.resourceClass;
+            return profile.edge;
         case 5:
-            return profile.match.captionExclude;
+            return profile.mode;
         case 6:
+            return profile.match.resourceClass;
+        case 7:
+            return profile.match.resourceName;
+        case 8:
+            return profile.match.captionExclude;
+        case 9:
             return profile.claimed ? QStringLiteral("claimed") : QStringLiteral("unclaimed");
         default:
             return {};
@@ -78,6 +55,61 @@ QVariant ProfileModel::data(const QModelIndex &index, int role) const
     }
 
     return {};
+}
+
+bool ProfileModel::setData(const QModelIndex &index, const QVariant &value, int role)
+{
+    if (role != Qt::EditRole || !index.isValid()
+        || index.row() < 0 || index.row() >= m_profiles.size()) {
+        return false;
+    }
+
+    auto &profile = m_profiles[index.row()];
+    const QString text = value.toString().trimmed();
+
+    switch (index.column()) {
+    case 0:
+        profile.id = text;
+        break;
+    case 1:
+        profile.name = text;
+        break;
+    case 2:
+        profile.shortcut = text;
+        break;
+    case 3:
+        profile.claimShortcut = text;
+        break;
+    case 4:
+        profile.edge = text;
+        break;
+    case 5:
+        profile.mode = text;
+        break;
+    case 6:
+        profile.match.resourceClass = text;
+        break;
+    case 7:
+        profile.match.resourceName = text;
+        break;
+    case 8:
+        profile.match.captionExclude = text;
+        break;
+    default:
+        return false;
+    }
+
+    emit dataChanged(index, index, {role, Qt::DisplayRole});
+    return true;
+}
+
+Qt::ItemFlags ProfileModel::flags(const QModelIndex &index) const
+{
+    auto flags = QAbstractTableModel::flags(index);
+    if (index.isValid() && index.column() < 9) {
+        flags |= Qt::ItemIsEditable;
+    }
+    return flags;
 }
 
 QVariant ProfileModel::headerData(int section, Qt::Orientation orientation, int role) const
@@ -88,22 +120,40 @@ QVariant ProfileModel::headerData(int section, Qt::Orientation orientation, int 
 
     switch (section) {
     case 0:
-        return QStringLiteral("Profile");
+        return QStringLiteral("ID");
     case 1:
-        return QStringLiteral("Shortcut");
+        return QStringLiteral("Profile");
     case 2:
-        return QStringLiteral("Edge");
+        return QStringLiteral("Shortcut");
     case 3:
-        return QStringLiteral("Size");
+        return QStringLiteral("Claim shortcut");
     case 4:
-        return QStringLiteral("resourceClass");
+        return QStringLiteral("Edge");
     case 5:
-        return QStringLiteral("exclude caption");
+        return QStringLiteral("Mode");
     case 6:
+        return QStringLiteral("resourceClass");
+    case 7:
+        return QStringLiteral("resourceName");
+    case 8:
+        return QStringLiteral("exclude caption");
+    case 9:
         return QStringLiteral("Claim");
     default:
         return {};
     }
+}
+
+const QVector<Profile> &ProfileModel::profiles() const
+{
+    return m_profiles;
+}
+
+void ProfileModel::setProfiles(QVector<Profile> profiles)
+{
+    beginResetModel();
+    m_profiles = std::move(profiles);
+    endResetModel();
 }
 
 Profile *ProfileModel::profileAt(int row)

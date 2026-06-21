@@ -10,10 +10,14 @@ struct MatchRules {
 };
 
 struct Profile {
+    QString id;
     QString name;
     QString shortcut;
+    QString claimShortcut;
     QString edge;
-    int sizePercent = 45;
+    QString mode = QStringLiteral("preserve_geometry");
+    int widthPercent = 100;
+    int heightPercent = 45;
     MatchRules match;
     bool claimed = false;
 };

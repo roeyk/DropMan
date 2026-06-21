@@ -96,11 +96,42 @@ keeps the stale script in memory.
 
 ## Configure Bindings
 
-Edit:
+The app now loads and saves editable profiles at the platform config location:
+
+```text
+~/.config/dropman/profiles.json
+```
+
+The file uses the same profile shape as the KWin prototype:
+
+```json
+{
+  "schemaVersion": 1,
+  "bindings": [
+    {
+      "id": "konsole",
+      "name": "Konsole",
+      "shortcut": "Meta+K",
+      "claimShortcut": "Meta+Shift+K",
+      "edge": "top",
+      "mode": "preserve_geometry",
+      "match": {
+        "resourceClass": "org.kde.konsole",
+        "resourceName": "konsole"
+      }
+    }
+  ]
+}
+```
+
+The packaged KWin prototype still has built-in defaults in:
 
 ```text
 kwin/dropman/contents/config/dropdowns.json
 ```
+
+The next integration step is wiring the resident KWin component to reload the
+app-saved profile config instead of relying on those packaged defaults.
 
 The starter profiles use identity fields observed on Geshem:
 
