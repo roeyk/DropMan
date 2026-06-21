@@ -6,6 +6,7 @@
 #include <QItemSelectionModel>
 #include <QLabel>
 #include <QPlainTextEdit>
+#include <QProcess>
 #include <QPushButton>
 #include <QTableView>
 #include <QVBoxLayout>
@@ -125,6 +126,28 @@ void MainWindow::saveProfiles()
         appendLog(QStringLiteral("Saved profiles to %1").arg(ProfileStore::configPath()));
     } else {
         appendLog(QStringLiteral("Could not save profiles: %1").arg(error));
+        return;
+    }
+
+    if (ProfileStore::mirrorToKWin(m_profiles.profiles(), &error)) {
+        appendLog(QStringLiteral("Mirrored profiles to KWin Script-dropman config"));
+    } else {
+        appendLog(QStringLiteral("Could not mirror profiles to KWin: %1").arg(error));
+        return;
+    }
+
+    const bool reconfigureStarted = QProcess::startDetached(
+        QStringLiteral("qdbus6"),
+        {
+            QStringLiteral("org.kde.KWin"),
+            QStringLiteral("/KWin"),
+            QStringLiteral("reconfigure")
+        });
+
+    if (reconfigureStarted) {
+        appendLog(QStringLiteral("Requested KWin reconfigure"));
+    } else {
+        appendLog(QStringLiteral("Could not start qdbus6 to reconfigure KWin"));
     }
 }
 

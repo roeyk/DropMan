@@ -72,13 +72,17 @@ Claiming a window parks it in hidden edge geometry immediately. That makes the
 next profile toggle a visible "show" action instead of requiring two toggles
 after claim.
 
-The app now owns profile editing and persistence. The KWin prototype still
-uses packaged defaults until the app-to-KWin bridge is implemented.
+The app owns profile editing and persistence. On save, it writes
+`profiles.json`, mirrors the same JSON into KWin's `Script-dropman` config
+group, and requests a KWin reconfigure. The resident KWin component reads that
+mirrored config on load and falls back to packaged defaults if it is missing or
+invalid.
 
 ## Roadmap Direction
 
 1. Build a Qt6/CMake app with profile editor and logging pane.
 2. Wire claim/release/test actions to the isolated KWin backend.
-3. Teach the resident KWin component to load/reload app-saved profiles.
+3. Harden KWin profile reload behavior and shortcut ownership when profiles
+   change.
 4. Improve visible toggle behavior and preserved edge geometry.
 5. Add animation and packaging.

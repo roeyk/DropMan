@@ -1,5 +1,8 @@
 #include "ProfileStore.h"
 
+#include <KConfig>
+#include <KConfigGroup>
+
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -65,6 +68,19 @@ QJsonObject profileToJson(const Profile &profile)
     object.insert(QStringLiteral("heightPercent"), profile.heightPercent);
     object.insert(QStringLiteral("match"), matchToJson(profile.match));
     return object;
+}
+
+QJsonDocument profilesDocument(const QVector<Profile> &profiles)
+{
+    QJsonArray bindings;
+    for (const auto &profile : profiles) {
+        bindings.append(profileToJson(profile));
+    }
+
+    QJsonObject root;
+    root.insert(QStringLiteral("schemaVersion"), 1);
+    root.insert(QStringLiteral("bindings"), bindings);
+    return QJsonDocument(root);
 }
 
 Profile profileFromJson(const QJsonObject &object)
@@ -184,15 +200,6 @@ bool ProfileStore::save(const QVector<Profile> &profiles, QString *errorMessage)
         return false;
     }
 
-    QJsonArray bindings;
-    for (const auto &profile : profiles) {
-        bindings.append(profileToJson(profile));
-    }
-
-    QJsonObject root;
-    root.insert(QStringLiteral("schemaVersion"), 1);
-    root.insert(QStringLiteral("bindings"), bindings);
-
     QFile file(configPath());
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         if (errorMessage) {
@@ -201,6 +208,25 @@ bool ProfileStore::save(const QVector<Profile> &profiles, QString *errorMessage)
         return false;
     }
 
-    file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+    file.write(profilesDocument(profiles).toJson(QJsonDocument::Indented));
+    return true;
+}
+
+bool ProfileStore::mirrorToKWin(const QVector<Profile> &profiles, QString *errorMessage)
+{
+    const QString json = QString::fromUtf8(profilesDocument(profiles).toJson(QJsonDocument::Compact));
+
+    KConfig kwinConfig(QStringLiteral("kwinrc"), KConfig::NoGlobals);
+    KConfigGroup scriptGroup(&kwinConfig, QStringLiteral("Script-dropman"));
+    scriptGroup.writeEntry(QStringLiteral("profilesJson"), json);
+    scriptGroup.sync();
+
+    if (!kwinConfig.sync()) {
+        if (errorMessage) {
+            *errorMessage = QStringLiteral("Could not sync kwinrc");
+        }
+        return false;
+    }
+
     return true;
 }

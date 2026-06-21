@@ -107,10 +107,23 @@ function tryCall(object, method, argument) {
     return false;
 }
 
-function readConfig() {
-    // KWin scripts cannot consistently read package data files across Plasma
-    // versions from JavaScript alone, so the committed JSON is the source
-    // format and this in-script default keeps the MVP installable.
+function readRuntimeConfig() {
+    const profilesJson = readConfig("profilesJson", "");
+    if (profilesJson) {
+        try {
+            const parsed = JSON.parse(profilesJson);
+            if (parsed && parsed.bindings && parsed.bindings.length >= 0) {
+                log("loaded " + parsed.bindings.length + " profiles from KWin Script-dropman config");
+                return parsed;
+            }
+            log("profilesJson did not contain a bindings array");
+        } catch (error) {
+            log("could not parse profilesJson: " + error);
+        }
+    } else {
+        log("no profilesJson in KWin Script-dropman config; using packaged defaults");
+    }
+
     return DEFAULT_CONFIG;
 }
 
@@ -416,7 +429,7 @@ function processWindow(window) {
 }
 
 function main() {
-    const config = readConfig();
+    const config = readRuntimeConfig();
     (config.bindings || []).forEach(registerBinding);
 
     workspace.windowList().forEach(processWindow);

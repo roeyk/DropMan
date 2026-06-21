@@ -130,8 +130,10 @@ The packaged KWin prototype still has built-in defaults in:
 kwin/dropman/contents/config/dropdowns.json
 ```
 
-The next integration step is wiring the resident KWin component to reload the
-app-saved profile config instead of relying on those packaged defaults.
+When profiles are saved, the app also mirrors the same JSON into KWin's
+`Script-dropman` config group and requests a KWin reconfigure. The resident
+KWin component reads that mirrored config on load and falls back to packaged
+defaults if it is missing or invalid.
 
 The starter profiles use identity fields observed on Geshem:
 

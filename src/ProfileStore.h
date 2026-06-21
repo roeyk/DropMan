@@ -12,4 +12,5 @@ public:
     static QVector<Profile> defaultProfiles();
     static QVector<Profile> load(QString *errorMessage = nullptr);
     static bool save(const QVector<Profile> &profiles, QString *errorMessage = nullptr);
+    static bool mirrorToKWin(const QVector<Profile> &profiles, QString *errorMessage = nullptr);
 };
