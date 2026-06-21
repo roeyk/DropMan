@@ -84,7 +84,7 @@ qdbus6 org.kde.KWin /KWin reconfigure
 Expected KWin logs for the preserve-geometry prototype include:
 
 ```text
-dropman: loaded 3 bindings; scriptVersion=profile-config-20260621
+dropman: loaded 3 bindings; scriptVersion=picked-claim-20260621
 dropman: claimed and hid ... shown=... hidden=...
 dropman: context for ... movedDesktop=...
 dropman: showed ... shown=...
@@ -135,9 +135,12 @@ When profiles are saved, the app also mirrors the same JSON into KWin's
 KWin component reads that mirrored config on load and falls back to packaged
 defaults if it is missing or invalid.
 
-The app's claim button starts KWin's window picker, then invokes the resident
-claim action through KDE's global shortcut service. Release and test-toggle
-also invoke resident KWin actions. KWin remains the owner of live window state.
+The app's claim button starts KWin's window picker, stages the picked window
+UUID in the `Script-dropman` config group, then invokes the resident
+`DropMan-ClaimPicked-<id>` action through KDE's global shortcut service.
+Keyboard claim shortcuts still use `DropMan-Claim-<id>` to claim the active
+window. Release and test-toggle also invoke resident KWin actions. KWin remains
+the owner of live window state.
 
 The starter profiles use identity fields observed on Geshem:
 

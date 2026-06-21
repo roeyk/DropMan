@@ -12,7 +12,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "profile-config-20260621";
+const SCRIPT_VERSION = "picked-claim-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -79,6 +79,25 @@ function asString(value) {
 
 function lower(value) {
     return asString(value).toLowerCase();
+}
+
+function normalizedId(value) {
+    return lower(value).replace(/[{}]/g, "").trim();
+}
+
+function propertyText(object, key) {
+    try {
+        if (object && key in object) {
+            const value = object[key];
+            if (value !== undefined && value !== null) {
+                return asString(value);
+            }
+        }
+    } catch (error) {
+        log("could not read " + key + ": " + error);
+    }
+
+    return "";
 }
 
 function trySet(window, property, value) {
@@ -221,6 +240,46 @@ function geometryText(geometry) {
     }
     return geometry.x + "," + geometry.y + " "
         + geometry.width + "x" + geometry.height;
+}
+
+function windowIdentityText(window) {
+    const values = [];
+    ["uuid", "internalId", "windowId", "id"].forEach((key) => {
+        const value = propertyText(window, key);
+        if (value) {
+            values.push(key + "=" + value);
+        }
+    });
+
+    return values.join(" ");
+}
+
+function windowMatchesUuid(window, uuid) {
+    const expected = normalizedId(uuid);
+    if (!expected) {
+        return false;
+    }
+
+    const keys = ["uuid", "internalId", "windowId", "id"];
+    for (let i = 0; i < keys.length; ++i) {
+        const value = normalizedId(propertyText(window, keys[i]));
+        if (value && value === expected) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function findWindowByUuid(uuid) {
+    const windows = workspace.windowList();
+    for (let i = 0; i < windows.length; ++i) {
+        if (windowMatchesUuid(windows[i], uuid)) {
+            return windows[i];
+        }
+    }
+
+    return null;
 }
 
 function prepareWindow(window, binding) {
@@ -379,6 +438,42 @@ function claimActiveWindow(binding) {
     log("claimed " + asString(window.caption) + " for " + binding.id);
 }
 
+function claimPickedWindow(binding) {
+    const profileId = asString(readConfig("pendingClaimProfileId", ""));
+    const uuid = asString(readConfig("pendingClaimWindowUuid", ""));
+
+    if (profileId !== binding.id) {
+        log("pending picked claim is for " + profileId + ", not " + binding.id);
+        return;
+    }
+
+    if (!uuid) {
+        log("no pending picked window uuid for " + binding.id);
+        return;
+    }
+
+    const window = findWindowByUuid(uuid);
+    if (!window) {
+        log("no picked window for " + binding.id + " uuid=" + uuid);
+        workspace.windowList().forEach((candidate) => {
+            log("available window: " + asString(candidate.caption)
+                + " " + windowIdentityText(candidate));
+        });
+        return;
+    }
+
+    if (!matchesBinding(window, binding)) {
+        log("picked window does not match candidate rules for " + binding.id
+            + ": " + asString(window.caption)
+            + " " + windowIdentityText(window));
+        return;
+    }
+
+    claimWindow(binding, window);
+    log("claimed picked " + asString(window.caption) + " for " + binding.id
+        + " uuid=" + uuid);
+}
+
 function releaseBinding(binding) {
     if (!binding.window) {
         log("no claimed window to release for " + binding.id);
@@ -436,6 +531,13 @@ function registerBinding(config) {
             () => claimActiveWindow(binding)
         );
     }
+
+    registerShortcut(
+        "DropMan-ClaimPicked-" + binding.id,
+        "DropMan: Claim picked " + binding.name,
+        "",
+        () => claimPickedWindow(binding)
+    );
 
     registerShortcut(
         "DropMan-Release-" + binding.id,

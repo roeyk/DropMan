@@ -12,7 +12,7 @@ public:
     explicit KWinBackend(QObject *parent = nullptr);
 
     QString activeWindowIdentity() const;
-    void claimActiveWindow(Profile &profile);
+    void claimPickedWindow(Profile &profile);
     void releaseClaim(Profile &profile);
     void testToggle(const Profile &profile);
 

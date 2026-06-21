@@ -34,7 +34,7 @@ MainWindow::MainWindow(QWidget *parent)
     auto *buttonLayout = new QHBoxLayout(buttonRow);
     buttonLayout->setContentsMargins(0, 0, 0, 0);
 
-    m_claimButton = new QPushButton(QStringLiteral("Claim active window"), buttonRow);
+    m_claimButton = new QPushButton(QStringLiteral("Claim picked window"), buttonRow);
     m_releaseButton = new QPushButton(QStringLiteral("Release claimed window"), buttonRow);
     m_toggleButton = new QPushButton(QStringLiteral("Test toggle"), buttonRow);
     m_reloadButton = new QPushButton(QStringLiteral("Reload profiles"), buttonRow);
@@ -61,15 +61,13 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(m_claimButton, &QPushButton::clicked, this, [this]() {
         if (auto *profile = selectedProfile()) {
-            m_backend.claimActiveWindow(*profile);
-            m_profiles.dataChanged(QModelIndex(), QModelIndex());
+            m_backend.claimPickedWindow(*profile);
         }
     });
 
     connect(m_releaseButton, &QPushButton::clicked, this, [this]() {
         if (auto *profile = selectedProfile()) {
             m_backend.releaseClaim(*profile);
-            m_profiles.dataChanged(QModelIndex(), QModelIndex());
         }
     });
 

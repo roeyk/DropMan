@@ -1,6 +1,10 @@
 #include "KWinBackend.h"
 
+#include <KConfig>
+#include <KConfigGroup>
+
 #include <QProcess>
+#include <QRegularExpression>
 #include <QStringList>
 
 namespace {
@@ -33,7 +37,18 @@ bool invokeKWinShortcut(const QString &id)
     return QProcess::execute(QStringLiteral("qdbus6"), shortArgs) == 0;
 }
 
-bool runKWinWindowPicker()
+bool reconfigureKWin()
+{
+    return QProcess::execute(
+        QStringLiteral("qdbus6"),
+        {
+            QStringLiteral("org.kde.KWin"),
+            QStringLiteral("/KWin"),
+            QStringLiteral("reconfigure")
+        }) == 0;
+}
+
+QString runKWinWindowPicker(QString *errorMessage)
 {
     const QStringList qualifiedArgs{
         QStringLiteral("org.kde.KWin"),
@@ -41,8 +56,11 @@ bool runKWinWindowPicker()
         QStringLiteral("org.kde.KWin.queryWindowInfo")
     };
 
-    if (QProcess::execute(QStringLiteral("qdbus6"), qualifiedArgs) == 0) {
-        return true;
+    QProcess process;
+    process.start(QStringLiteral("qdbus6"), qualifiedArgs);
+    process.waitForFinished(-1);
+    if (process.exitStatus() == QProcess::NormalExit && process.exitCode() == 0) {
+        return QString::fromUtf8(process.readAllStandardOutput());
     }
 
     const QStringList shortArgs{
@@ -51,7 +69,54 @@ bool runKWinWindowPicker()
         QStringLiteral("queryWindowInfo")
     };
 
-    return QProcess::execute(QStringLiteral("qdbus6"), shortArgs) == 0;
+    process.start(QStringLiteral("qdbus6"), shortArgs);
+    process.waitForFinished(-1);
+    if (process.exitStatus() == QProcess::NormalExit && process.exitCode() == 0) {
+        return QString::fromUtf8(process.readAllStandardOutput());
+    }
+
+    if (errorMessage) {
+        const QString stderrText = QString::fromUtf8(process.readAllStandardError()).trimmed();
+        *errorMessage = stderrText.isEmpty()
+            ? QStringLiteral("qdbus6 queryWindowInfo failed")
+            : stderrText;
+    }
+
+    return {};
+}
+
+QString pickedWindowUuid(const QString &pickerOutput)
+{
+    const QRegularExpression uuidLine(QStringLiteral(R"(^uuid:\s*\{?([^}\n\r]+)\}?\s*$)"),
+                                      QRegularExpression::MultilineOption);
+    const auto match = uuidLine.match(pickerOutput);
+    return match.hasMatch() ? match.captured(1).trimmed() : QString();
+}
+
+QString pickedWindowCaption(const QString &pickerOutput)
+{
+    const QRegularExpression captionLine(QStringLiteral(R"(^caption:\s*(.+?)\s*$)"),
+                                         QRegularExpression::MultilineOption);
+    const auto match = captionLine.match(pickerOutput);
+    return match.hasMatch() ? match.captured(1).trimmed() : QString();
+}
+
+bool writePendingClaim(const Profile &profile, const QString &uuid, QString *errorMessage)
+{
+    KConfig kwinConfig(QStringLiteral("kwinrc"), KConfig::NoGlobals);
+    KConfigGroup scriptGroup(&kwinConfig, QStringLiteral("Script-dropman"));
+    scriptGroup.writeEntry(QStringLiteral("pendingClaimProfileId"), profile.id);
+    scriptGroup.writeEntry(QStringLiteral("pendingClaimWindowUuid"), uuid);
+    scriptGroup.sync();
+
+    if (!kwinConfig.sync()) {
+        if (errorMessage) {
+            *errorMessage = QStringLiteral("Could not sync pending claim to kwinrc");
+        }
+        return false;
+    }
+
+    return true;
 }
 
 }
@@ -68,16 +133,39 @@ QString KWinBackend::activeWindowIdentity() const
         "Expected fields: resourceClass, resourceName, caption.");
 }
 
-void KWinBackend::claimActiveWindow(Profile &profile)
+void KWinBackend::claimPickedWindow(Profile &profile)
 {
-    const QString id = actionId(QStringLiteral("Claim-"), profile);
-
     emit logMessage(QStringLiteral("Starting KWin window picker for %1").arg(profile.name));
-    if (!runKWinWindowPicker()) {
-        emit logMessage(QStringLiteral("KWin window picker was not available; could not claim %1").arg(profile.name));
+
+    QString error;
+    const QString pickerOutput = runKWinWindowPicker(&error);
+    if (pickerOutput.isEmpty()) {
+        emit logMessage(QStringLiteral("KWin window picker failed: %1").arg(error));
         return;
     }
 
+    const QString uuid = pickedWindowUuid(pickerOutput);
+    if (uuid.isEmpty()) {
+        emit logMessage(QStringLiteral("KWin picker did not return a window uuid"));
+        return;
+    }
+
+    if (!writePendingClaim(profile, uuid, &error)) {
+        emit logMessage(QStringLiteral("Could not stage picked window claim: %1").arg(error));
+        return;
+    }
+
+    const QString caption = pickedWindowCaption(pickerOutput);
+    emit logMessage(QStringLiteral("Picked %1 for %2; uuid=%3")
+                        .arg(caption.isEmpty() ? QStringLiteral("<unnamed window>") : caption,
+                             profile.name,
+                             uuid));
+
+    if (!reconfigureKWin()) {
+        emit logMessage(QStringLiteral("Could not request KWin reconfigure for pending picked claim"));
+    }
+
+    const QString id = actionId(QStringLiteral("ClaimPicked-"), profile);
     if (invokeKWinShortcut(id)) {
         profile.claimed = true;
         emit logMessage(QStringLiteral("Invoked KWin action %1").arg(id));

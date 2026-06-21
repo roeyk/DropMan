@@ -80,7 +80,9 @@ invalid.
 
 The app controls the live runtime by invoking KWin-owned UI/actions:
 
-- claim starts KWin's window picker, then invokes `DropMan-Claim-<id>`;
+- app claim starts KWin's window picker, stages the picked UUID in
+  `Script-dropman`, then invokes `DropMan-ClaimPicked-<id>`;
+- keyboard claim invokes `DropMan-Claim-<id>` and claims the active window;
 - `DropMan-Release-<id>` releases the claimed window;
 - `DropMan-<id>` toggles the claimed window.
 

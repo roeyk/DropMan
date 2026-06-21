@@ -5,7 +5,7 @@
 - Qt6/CMake desktop app.
 - Persistent profile editor.
 - Fields per profile: name, match rules, edge, size metadata, shortcut.
-- Actions: claim active window, release claimed window, test toggle.
+- Actions: claim picked window, release claimed window, test toggle.
 - Logging pane showing live KWin identity data.
 - Plasma/KWin backend isolated from the rest of the app.
 
@@ -13,9 +13,7 @@
 
 - Harden resident KWin reload after profile edits, including shortcut changes
   and removed profiles.
-- Validate app button invocation of KWin actions through KGlobalAccel on
-  Plasma.
-- Validate KWin window-picker behavior for app-driven claim on Plasma.
+- Validate app-driven picked-window claim on Plasma.
 - Confirm backend behavior on Geshem's live Plasma session.
 - Tighten Firefox matching to avoid profile-picker dialogs.
 - Persist selected window identity where KWin exposes a stable identifier.
