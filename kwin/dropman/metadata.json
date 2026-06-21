@@ -1,0 +1,18 @@
+{
+    "KPackageStructure": "KWin/Script",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "roeyk@users.noreply.github.com",
+                "Name": "Roey Katz"
+            }
+        ],
+        "Description": "Bind ordinary KDE windows to dropdown shortcuts and screen edges.",
+        "Icon": "preferences-system-windows-script-test",
+        "Id": "dropman",
+        "License": "MIT",
+        "Name": "DropMan",
+        "Version": "0.1.0"
+    },
+    "X-Plasma-API": "javascript"
+}

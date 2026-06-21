@@ -1,0 +1,41 @@
+{
+    "bindings": [
+        {
+            "id": "konsole",
+            "name": "Konsole",
+            "shortcut": "Meta+K",
+            "edge": "top",
+            "widthPercent": 100,
+            "heightPercent": 45,
+            "match": {
+                "resourceClass": "org.kde.konsole",
+                "resourceName": "konsole"
+            }
+        },
+        {
+            "id": "firefox",
+            "name": "Firefox",
+            "shortcut": "Meta+F",
+            "edge": "right",
+            "widthPercent": 40,
+            "heightPercent": 100,
+            "match": {
+                "resourceClass": "firefox_firefox",
+                "resourceName": "firefox",
+                "caption": "Firefox"
+            }
+        },
+        {
+            "id": "uplink",
+            "name": "Uplink",
+            "shortcut": "Meta+U",
+            "edge": "right",
+            "widthPercent": 55,
+            "heightPercent": 100,
+            "match": {
+                "resourceClass": "Uplink",
+                "resourceName": "Uplink"
+            }
+        }
+    ]
+}
