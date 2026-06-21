@@ -157,6 +157,20 @@ bool containsExcluded(const QString &actual, const QString &expected)
     return !expected.isEmpty() && actual.contains(expected, Qt::CaseInsensitive);
 }
 
+bool isDropManControlPick(const QString &pickerOutput)
+{
+    const QString caption = pickedWindowCaptionValue(pickerOutput).toLower();
+    const QString resourceClass = pickedWindowField(pickerOutput, QStringLiteral("resourceClass")).toLower();
+    const QString resourceName = pickedWindowField(pickerOutput, QStringLiteral("resourceName")).toLower();
+    const QString desktopFile = pickedWindowField(pickerOutput, QStringLiteral("desktopFile")).toLower();
+
+    return caption == QStringLiteral("dropman")
+        || caption.startsWith(QStringLiteral("dropman :"))
+        || resourceClass == QStringLiteral("dropman")
+        || resourceName == QStringLiteral("dropman")
+        || desktopFile == QStringLiteral("dropman");
+}
+
 bool pickedWindowMatchesProfile(const QString &pickerOutput, const Profile &profile)
 {
     const QString resourceClass = pickedWindowField(pickerOutput, QStringLiteral("resourceClass"));
@@ -171,9 +185,10 @@ bool pickedWindowMatchesProfile(const QString &pickerOutput, const Profile &prof
 
 QString pickedWindowSummary(const QString &pickerOutput)
 {
-    return QStringLiteral("resourceClass=%1 resourceName=%2 caption=%3")
+    return QStringLiteral("resourceClass=%1 resourceName=%2 desktopFile=%3 caption=%4")
         .arg(pickedWindowField(pickerOutput, QStringLiteral("resourceClass")),
              pickedWindowField(pickerOutput, QStringLiteral("resourceName")),
+             pickedWindowField(pickerOutput, QStringLiteral("desktopFile")),
              pickedWindowCaptionValue(pickerOutput));
 }
 
@@ -328,6 +343,12 @@ void KWinBackend::claimPickedWindow(Profile &profile)
                         .arg(caption.isEmpty() ? QStringLiteral("<unnamed window>") : caption,
                              profile.name,
                              uuid));
+
+    if (isDropManControlPick(pickerOutput)) {
+        emit logMessage(QStringLiteral("Refusing to claim DropMan's own control window for %1: %2")
+                            .arg(profile.name, pickedWindowSummary(pickerOutput)));
+        return;
+    }
 
     if (!pickedWindowMatchesProfile(pickerOutput, profile)) {
         emit logMessage(QStringLiteral("Picked window does not match %1 profile: %2")

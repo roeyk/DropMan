@@ -47,6 +47,11 @@ share the same class/name fields as real browser windows. The starter Firefox
 profile intentionally avoids a positive caption match; the explicit active
 window claim is the binding decision.
 
+DropMan's own control windows must not be claimable. The app picker and the
+resident KWin script both reject windows that identify as DropMan or whose
+caption begins with `DropMan :`, which avoids accidentally binding the Konsole
+session used to run or monitor DropMan.
+
 Claimed-window mutations should stay minimal in early runtime testing. Edge
 geometry movement is the first behavior to validate; hints such as no-border,
 skip-taskbar, all-desktops, or keep-above are opt-in profile settings.

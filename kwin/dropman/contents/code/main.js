@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "app-persisted-claims-20260621";
+const SCRIPT_VERSION = "claim-control-guard-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -412,6 +412,7 @@ function isDropManControlWindow(window) {
     const desktopFile = lower(window && window.desktopFile);
 
     return caption === "dropman"
+        || caption.indexOf("dropman :") === 0
         || resourceClass === "dropman"
         || resourceName === "dropman"
         || desktopFile === "dropman";
@@ -609,6 +610,10 @@ function findWindow(binding) {
 function recoverParkedWindow(binding) {
     const candidates = [];
     workspace.windowList().forEach((window) => {
+        if (isDropManControlWindow(window)) {
+            return;
+        }
+
         if (!matchesBinding(window, binding)) {
             return;
         }
@@ -645,7 +650,7 @@ function recoverParkedWindow(binding) {
 function recoverSoleMatchingWindow(binding) {
     const candidates = [];
     workspace.windowList().forEach((window) => {
-        if (matchesBinding(window, binding)) {
+        if (!isDropManControlWindow(window) && matchesBinding(window, binding)) {
             candidates.push(window);
         }
     });
@@ -687,6 +692,14 @@ function restoreAppPersistedClaim(binding) {
     if (!window) {
         log("forgot app-persisted claim for " + binding.id
             + ": uuid not found uuid=" + uuid);
+        return false;
+    }
+
+    if (isDropManControlWindow(window)) {
+        log("discarded app-persisted claim for " + binding.id
+            + ": remembered window is DropMan control window "
+            + asString(window.caption)
+            + " " + windowIdentityText(window));
         return false;
     }
 
@@ -807,6 +820,13 @@ function claimActiveWindow(binding) {
         return;
     }
 
+    if (isDropManControlWindow(window)) {
+        log("refusing to claim DropMan control window for " + binding.id
+            + ": " + asString(window.caption)
+            + " " + windowIdentityText(window));
+        return;
+    }
+
     claimWindow(binding, window);
     log("claimed " + asString(window.caption) + " for " + binding.id);
 }
@@ -838,6 +858,13 @@ function pickedWindowForBinding(binding) {
 
     if (!matchesBinding(window, binding)) {
         log("picked window does not match candidate rules for " + binding.id
+            + ": " + asString(window.caption)
+            + " " + windowIdentityText(window));
+        return null;
+    }
+
+    if (isDropManControlWindow(window)) {
+        log("refusing picked DropMan control window for " + binding.id
             + ": " + asString(window.caption)
             + " " + windowIdentityText(window));
         return null;
@@ -935,6 +962,10 @@ function registerBinding(config) {
 }
 
 function processWindow(window) {
+    if (isDropManControlWindow(window)) {
+        return;
+    }
+
     bindings.forEach((binding) => {
         if (!binding.window && matchesBinding(window, binding)) {
             log("candidate for " + binding.id + ": " + asString(window.caption));
