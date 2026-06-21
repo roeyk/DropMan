@@ -35,6 +35,11 @@ window captures its current frame rectangle as the shown state. The configured
 edge controls only the offscreen hide direction. DropMan does not resize or
 repack the window during normal toggle.
 
+Like Yakuake, a claimed window should appear on the virtual desktop/activity
+where its shortcut is invoked. On show, the KWin prototype first moves the
+claimed window into the current desktop/activity context, then restores and
+activates its preserved geometry.
+
 ## Repository Layout
 
 ```text
@@ -79,8 +84,9 @@ qdbus6 org.kde.KWin /KWin reconfigure
 Expected KWin logs for the preserve-geometry prototype include:
 
 ```text
-dropman: loaded 3 bindings; scriptVersion=preserve-geometry-20260621
+dropman: loaded 3 bindings; scriptVersion=preserve-geometry-current-desktop-20260621
 dropman: claimed and hid ... shown=... hidden=...
+dropman: context for ... movedDesktop=...
 dropman: showed ... shown=...
 ```
 

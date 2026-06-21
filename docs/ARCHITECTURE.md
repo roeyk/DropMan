@@ -55,6 +55,9 @@ Default geometry mode is `preserve_geometry`:
 - hide translates that exact rectangle fully offscreen in the configured edge
   direction;
 - show restores `shownGeometry` exactly;
+- before showing, DropMan moves the claimed window to the current
+  virtual-desktop/activity context so the panel appears where the shortcut was
+  invoked;
 - if the user moves or resizes the claimed window while visible, the stored
   `shownGeometry` is updated on the next hide.
 

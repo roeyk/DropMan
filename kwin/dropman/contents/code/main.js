@@ -12,7 +12,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "preserve-geometry-20260621";
+const SCRIPT_VERSION = "preserve-geometry-current-desktop-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -227,6 +227,39 @@ function prepareWindow(window, binding) {
     }
 }
 
+function currentDesktop() {
+    if (workspace.currentDesktop) {
+        return workspace.currentDesktop;
+    }
+    if (workspace.currentVirtualDesktop) {
+        return workspace.currentVirtualDesktop;
+    }
+    return null;
+}
+
+function moveWindowToCurrentContext(window, binding) {
+    const desktop = currentDesktop();
+    let movedDesktop = false;
+    let movedActivity = false;
+
+    if (desktop) {
+        if ("desktops" in window) {
+            movedDesktop = trySet(window, "desktops", [desktop]);
+        }
+        if (!movedDesktop) {
+            movedDesktop = trySet(window, "desktop", desktop);
+        }
+    }
+
+    if (workspace.currentActivity && "activities" in window) {
+        movedActivity = trySet(window, "activities", [workspace.currentActivity]);
+    }
+
+    log("context for " + binding.id
+        + " movedDesktop=" + movedDesktop
+        + " movedActivity=" + movedActivity);
+}
+
 function activateWindow(window, binding) {
     trySet(window, "minimized", false);
 
@@ -305,6 +338,7 @@ function toggleBinding(binding) {
             + " shown=" + geometryText(binding.shownGeometry)
             + " hidden=" + geometryText(hidden));
     } else {
+        moveWindowToCurrentContext(window, binding);
         trySet(window, "frameGeometry", binding.shownGeometry);
         activateWindow(window, binding);
         binding.visible = true;

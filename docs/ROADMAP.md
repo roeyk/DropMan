@@ -16,6 +16,8 @@
 - Persist selected window identity where KWin exposes a stable identifier.
 - Make preserve-current-window-geometry toggle behavior reliable before
   animation.
+- Verify current-desktop/current-activity show behavior across multiple Plasma
+  desktops.
 - Add smooth slide animation after geometry is stable.
 - Replace the placeholder app backend with real communication to the resident
   KWin component.
