@@ -138,12 +138,16 @@ When profiles are saved, the app also mirrors the same JSON into KWin's
 KWin component reads that mirrored config on load and falls back to packaged
 defaults if it is missing or invalid.
 
-The app's claim button starts KWin's window picker, stages the picked window
-UUID in the `Script-dropman` config group, then invokes the resident
-`DropMan-ClaimPicked-<id>` action through KDE's global shortcut service.
-Keyboard claim shortcuts still use `DropMan-Claim-<id>` to claim the active
-window. Release and test-toggle also invoke resident KWin actions. KWin remains
-the owner of live window state.
+The app's claim button starts KWin's window picker, stores the picked window
+UUID and shown geometry in `Script-dropman` `claimsJson`, stages the picked
+window UUID for the resident script, then invokes `DropMan-ClaimPicked-<id>`
+through KDE's global shortcut service. On script reload, KWin restores those
+app-persisted claims by exact UUID before falling back to conservative matching
+recovery. Keyboard claim shortcuts still use `DropMan-Claim-<id>` to claim the
+active window, but those script-only claims are not durable because KWin's
+shortcut script context cannot write config. Release and test-toggle also
+invoke resident KWin actions; app-side release removes the persisted claim
+entry before invoking the resident release action.
 
 The starter profiles use identity fields observed on Geshem:
 

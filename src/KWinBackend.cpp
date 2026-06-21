@@ -111,6 +111,42 @@ QString pickedWindowCaptionValue(const QString &pickerOutput)
     return pickedWindowField(pickerOutput, QStringLiteral("caption"));
 }
 
+bool pickedWindowNumberField(const QString &pickerOutput, const QString &field, double *value)
+{
+    bool ok = false;
+    const double parsed = pickedWindowField(pickerOutput, field).toDouble(&ok);
+    if (!ok) {
+        return false;
+    }
+
+    if (value) {
+        *value = parsed;
+    }
+    return true;
+}
+
+QJsonObject pickedWindowGeometry(const QString &pickerOutput)
+{
+    double x = 0.0;
+    double y = 0.0;
+    double width = 0.0;
+    double height = 0.0;
+
+    if (!pickedWindowNumberField(pickerOutput, QStringLiteral("x"), &x)
+        || !pickedWindowNumberField(pickerOutput, QStringLiteral("y"), &y)
+        || !pickedWindowNumberField(pickerOutput, QStringLiteral("width"), &width)
+        || !pickedWindowNumberField(pickerOutput, QStringLiteral("height"), &height)) {
+        return {};
+    }
+
+    QJsonObject geometry;
+    geometry.insert(QStringLiteral("x"), x);
+    geometry.insert(QStringLiteral("y"), y);
+    geometry.insert(QStringLiteral("width"), width);
+    geometry.insert(QStringLiteral("height"), height);
+    return geometry;
+}
+
 bool containsMatch(const QString &actual, const QString &expected)
 {
     return expected.isEmpty() || actual.contains(expected, Qt::CaseInsensitive);
@@ -141,7 +177,10 @@ QString pickedWindowSummary(const QString &pickerOutput)
              pickedWindowCaptionValue(pickerOutput));
 }
 
-bool writePendingClaim(const Profile &profile, const QString &uuid, QString *errorMessage)
+bool writePendingClaim(const Profile &profile,
+                       const QString &uuid,
+                       const QString &pickerOutput,
+                       QString *errorMessage)
 {
     KConfig kwinConfig(QStringLiteral("kwinrc"), KConfig::NoGlobals);
     KConfigGroup scriptGroup(&kwinConfig, QStringLiteral("Script-dropman"));
@@ -167,6 +206,38 @@ bool writePendingClaim(const Profile &profile, const QString &uuid, QString *err
         }
     }
 
+    QJsonObject claimsRoot;
+    const QString claimsJson = scriptGroup.readEntry(QStringLiteral("claimsJson"), QString());
+    if (!claimsJson.isEmpty()) {
+        QJsonParseError parseError;
+        QJsonDocument document = QJsonDocument::fromJson(claimsJson.toUtf8(), &parseError);
+        if (!document.isObject()) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Could not parse existing claimsJson: %1")
+                                    .arg(parseError.errorString());
+            }
+            return false;
+        }
+        claimsRoot = document.object();
+    }
+
+    QJsonObject claims = claimsRoot.value(QStringLiteral("claims")).toObject();
+    QJsonObject claim;
+    claim.insert(QStringLiteral("windowUuid"), uuid);
+    claim.insert(QStringLiteral("visible"), true);
+
+    const QJsonObject geometry = pickedWindowGeometry(pickerOutput);
+    if (!geometry.isEmpty()) {
+        claim.insert(QStringLiteral("shownGeometry"), geometry);
+    }
+
+    claims.insert(profile.id, claim);
+    claimsRoot.insert(QStringLiteral("schemaVersion"), 1);
+    claimsRoot.insert(QStringLiteral("claims"), claims);
+    scriptGroup.writeEntry(
+        QStringLiteral("claimsJson"),
+        QString::fromUtf8(QJsonDocument(claimsRoot).toJson(QJsonDocument::Compact)));
+
     scriptGroup.writeEntry(QStringLiteral("pendingClaimProfileId"), profile.id);
     scriptGroup.writeEntry(QStringLiteral("pendingClaimWindowUuid"), uuid);
     scriptGroup.sync();
@@ -174,6 +245,46 @@ bool writePendingClaim(const Profile &profile, const QString &uuid, QString *err
     if (!kwinConfig.sync()) {
         if (errorMessage) {
             *errorMessage = QStringLiteral("Could not sync pending claim to kwinrc");
+        }
+        return false;
+    }
+
+    return true;
+}
+
+bool removePersistedClaim(const Profile &profile, QString *errorMessage)
+{
+    KConfig kwinConfig(QStringLiteral("kwinrc"), KConfig::NoGlobals);
+    KConfigGroup scriptGroup(&kwinConfig, QStringLiteral("Script-dropman"));
+
+    const QString claimsJson = scriptGroup.readEntry(QStringLiteral("claimsJson"), QString());
+    if (claimsJson.isEmpty()) {
+        return true;
+    }
+
+    QJsonParseError parseError;
+    QJsonDocument document = QJsonDocument::fromJson(claimsJson.toUtf8(), &parseError);
+    if (!document.isObject()) {
+        if (errorMessage) {
+            *errorMessage = QStringLiteral("Could not parse existing claimsJson: %1")
+                                .arg(parseError.errorString());
+        }
+        return false;
+    }
+
+    QJsonObject root = document.object();
+    QJsonObject claims = root.value(QStringLiteral("claims")).toObject();
+    claims.remove(profile.id);
+    root.insert(QStringLiteral("claims"), claims);
+
+    scriptGroup.writeEntry(
+        QStringLiteral("claimsJson"),
+        QString::fromUtf8(QJsonDocument(root).toJson(QJsonDocument::Compact)));
+    scriptGroup.sync();
+
+    if (!kwinConfig.sync()) {
+        if (errorMessage) {
+            *errorMessage = QStringLiteral("Could not sync claim removal to kwinrc");
         }
         return false;
     }
@@ -224,10 +335,11 @@ void KWinBackend::claimPickedWindow(Profile &profile)
         return;
     }
 
-    if (!writePendingClaim(profile, uuid, &error)) {
+    if (!writePendingClaim(profile, uuid, pickerOutput, &error)) {
         emit logMessage(QStringLiteral("Could not stage picked window claim: %1").arg(error));
         return;
     }
+    emit logMessage(QStringLiteral("Persisted picked claim for %1 into KWin config").arg(profile.name));
 
     if (!reconfigureKWin()) {
         emit logMessage(QStringLiteral("Could not request KWin reconfigure for pending picked claim"));
@@ -247,6 +359,14 @@ void KWinBackend::claimPickedWindow(Profile &profile)
 
 void KWinBackend::releaseClaim(Profile &profile)
 {
+    QString error;
+    if (removePersistedClaim(profile, &error)) {
+        emit logMessage(QStringLiteral("Removed persisted picked claim for %1").arg(profile.name));
+    } else {
+        emit logMessage(QStringLiteral("Could not remove persisted claim for %1: %2")
+                            .arg(profile.name, error));
+    }
+
     const QString id = actionId(QStringLiteral("Release-"), profile);
     if (invokeKWinShortcut(id)) {
         profile.claimed = false;

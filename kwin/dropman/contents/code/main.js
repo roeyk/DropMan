@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "reload-recovery-20260621";
+const SCRIPT_VERSION = "app-persisted-claims-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -67,6 +67,7 @@ const DEFAULT_CONFIG = {
 
 const bindings = new Map();
 let runtimeConfig = null;
+let appPersistedClaims = {};
 let lastNonDropdownWindow = null;
 
 function log(message) {
@@ -149,6 +150,39 @@ function readRuntimeConfig() {
     return DEFAULT_CONFIG;
 }
 
+function objectKeyCount(object) {
+    let count = 0;
+    if (!object) {
+        return 0;
+    }
+    Object.keys(object).forEach(() => {
+        ++count;
+    });
+    return count;
+}
+
+function readAppPersistedClaims() {
+    const claimsJson = readConfig("claimsJson", "");
+    if (!claimsJson) {
+        log("no app-persisted claim state in KWin Script-dropman config");
+        return {};
+    }
+
+    try {
+        const parsed = JSON.parse(claimsJson);
+        if (parsed && parsed.claims) {
+            log("loaded app-persisted claim state for "
+                + objectKeyCount(parsed.claims) + " profiles");
+            return parsed.claims;
+        }
+        log("claimsJson did not contain a claims object");
+    } catch (error) {
+        log("could not parse claimsJson: " + error);
+    }
+
+    return {};
+}
+
 function windowText(window, key) {
     if (!window) {
         return "";
@@ -212,6 +246,21 @@ function copyGeometry(geometry) {
 
 function currentFrameGeometry(window) {
     return copyGeometry(window && window.frameGeometry);
+}
+
+function persistedGeometry(value) {
+    if (!value) {
+        return null;
+    }
+
+    if (typeof value.x !== "number"
+        || typeof value.y !== "number"
+        || typeof value.width !== "number"
+        || typeof value.height !== "number") {
+        return null;
+    }
+
+    return copyGeometry(value);
 }
 
 function hiddenGeometry(shown, binding, window) {
@@ -622,6 +671,59 @@ function recoverSoleMatchingWindow(binding) {
     return true;
 }
 
+function restoreAppPersistedClaim(binding) {
+    const claim = appPersistedClaims[binding.id];
+    if (!claim) {
+        return false;
+    }
+
+    const uuid = asString(claim.windowUuid);
+    if (!uuid) {
+        log("forgot app-persisted claim for " + binding.id + ": missing uuid");
+        return false;
+    }
+
+    const window = findWindowByUuid(uuid);
+    if (!window) {
+        log("forgot app-persisted claim for " + binding.id
+            + ": uuid not found uuid=" + uuid);
+        return false;
+    }
+
+    if (!matchesBinding(window, binding)) {
+        log("discarded app-persisted claim for " + binding.id
+            + ": candidate rules reject " + asString(window.caption)
+            + " " + windowIdentityText(window));
+        return false;
+    }
+
+    const shown = persistedGeometry(claim.shownGeometry)
+        || currentFrameGeometry(window);
+    if (!shown) {
+        log("forgot app-persisted claim for " + binding.id
+            + ": no shown geometry uuid=" + uuid);
+        return false;
+    }
+
+    binding.window = window;
+    binding.shownGeometry = shown;
+    binding.visible = claim.visible === true;
+
+    const liveGeometry = currentFrameGeometry(window);
+    if (isParkedOffscreen(liveGeometry, binding, window)) {
+        binding.visible = false;
+    }
+
+    watchClaimedWindow(binding, window);
+    log("restored app-persisted claim " + binding.id
+        + " visible=" + binding.visible
+        + " shown=" + geometryText(binding.shownGeometry)
+        + " live=" + geometryText(liveGeometry)
+        + " uuid=" + uuid
+        + " " + asString(window.caption));
+    return true;
+}
+
 function toggleBinding(binding) {
     let window = findWindow(binding);
     if (!window) {
@@ -842,8 +944,10 @@ function processWindow(window) {
 
 function main() {
     runtimeConfig = readRuntimeConfig();
+    appPersistedClaims = readAppPersistedClaims();
     (runtimeConfig.bindings || []).forEach(registerBinding);
 
+    bindings.forEach(restoreAppPersistedClaim);
     workspace.windowList().forEach(processWindow);
     workspace.windowAdded.connect(processWindow);
     rememberFocusWindow(workspace.activeWindow);

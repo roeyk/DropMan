@@ -81,13 +81,18 @@ one matching offscreen window parked on that profile's configured edge, then
 restore it into the current context. This is intentionally narrow to avoid
 broad class-based mutation.
 
-The KWin script can read profile config but cannot persist runtime claim state:
-Geshem showed `writeConfig` is not exposed in this script context. Reload
-recovery is therefore conservative and heuristic: if the script has no
-in-memory claim, a profile toggle may rebind exactly one matching window that
-is parked offscreen on the profile edge, or exactly one matching visible
-window. Ambiguous matches are refused to preserve the "match many, bind one"
-rule.
+The KWin script can read profile config but cannot write runtime claim state:
+Geshem showed `writeConfig` is not exposed in this script context. App-driven
+claims therefore persist through the Qt app, which writes a `claimsJson` map
+into KWin's `Script-dropman` config group. On reload, the resident KWin script
+first restores those claims by exact UUID and logs whether each remembered
+claim was restored, forgotten because the UUID is gone, or discarded because
+the current profile rules reject the window.
+
+If no app-persisted claim exists, reload recovery remains conservative and
+heuristic: a profile toggle may rebind exactly one matching window that is
+parked offscreen on the profile edge, or exactly one matching visible window.
+Ambiguous matches are refused to preserve the "match many, bind one" rule.
 
 When a dropdown is hidden, DropMan restores focus to the last active window
 that was not one of DropMan's claimed dropdown windows, when KWin exposes the
@@ -101,10 +106,12 @@ invalid.
 
 The app controls the live runtime by invoking KWin-owned UI/actions:
 
-- app claim starts KWin's window picker, stages the picked UUID in
-  `Script-dropman`, then invokes `DropMan-ClaimPicked-<id>`;
+- app claim starts KWin's window picker, persists the picked UUID and geometry
+  in `Script-dropman` `claimsJson`, stages the picked UUID, then invokes
+  `DropMan-ClaimPicked-<id>`;
 - keyboard claim invokes `DropMan-Claim-<id>` and claims the active window;
-- `DropMan-Release-<id>` releases the claimed window;
+- app release removes the persisted claim entry and invokes
+  `DropMan-Release-<id>` to release the claimed window;
 - `DropMan-<id>` toggles the claimed window.
 
 ## Animation Boundary

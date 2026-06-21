@@ -11,12 +11,13 @@
 
 ## Next
 
-- Harden resident KWin reload after profile edits, including shortcut changes
-  and removed profiles.
+- Harden resident KWin reload after profile edits, including shortcut changes,
+  removed profiles, and app-persisted claim restore diagnostics.
 - Validate app-driven picked-window claim on Plasma.
 - Confirm backend behavior on Geshem's live Plasma session.
 - Tighten Firefox matching to avoid profile-picker dialogs.
-- Persist selected window identity where KWin exposes a stable identifier.
+- Persist app-picked selected window identity where KWin exposes a stable
+  identifier.
 - Make preserve-current-window-geometry toggle behavior reliable before
   animation.
 - Verify current-desktop/current-activity show behavior across multiple Plasma
