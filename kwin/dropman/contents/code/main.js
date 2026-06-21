@@ -12,7 +12,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "preserve-geometry-current-desktop-20260621";
+const SCRIPT_VERSION = "profile-config-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
