@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "recover-offscreen-claim-20260621";
+const SCRIPT_VERSION = "restore-previous-focus-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -67,6 +67,7 @@ const DEFAULT_CONFIG = {
 
 const bindings = new Map();
 let runtimeConfig = null;
+let lastNonDropdownWindow = null;
 
 function log(message) {
     console.info(LOG_PREFIX + message);
@@ -333,6 +334,25 @@ function findWindowByUuid(uuid) {
     return null;
 }
 
+function isClaimedWindow(window) {
+    let claimed = false;
+    bindings.forEach((binding) => {
+        if (binding.window === window) {
+            claimed = true;
+        }
+    });
+    return claimed;
+}
+
+function rememberFocusWindow(window) {
+    if (!window || isClaimedWindow(window)) {
+        return;
+    }
+
+    lastNonDropdownWindow = window;
+    log("remembered focus window: " + asString(window.caption));
+}
+
 function prepareWindow(window, binding) {
     const hints = binding.windowHints || {};
 
@@ -459,6 +479,24 @@ function activateWindow(window, binding) {
         + " activeWindow=" + asString(workspace.activeWindow && workspace.activeWindow.caption));
 }
 
+function restoreFocusAfterHide(hiddenWindow, previousWindow, binding) {
+    if (!previousWindow || previousWindow === hiddenWindow) {
+        return;
+    }
+
+    trySet(previousWindow, "minimized", false);
+    const activated = tryCall(workspace, "activateWindow", previousWindow)
+        || trySet(workspace, "activeWindow", previousWindow)
+        || trySet(previousWindow, "active", true);
+    const raised = tryCall(workspace, "raiseWindow", previousWindow)
+        || tryCall(previousWindow, "raise");
+
+    log("restored focus after hiding " + binding.id
+        + " activated=" + activated
+        + " raised=" + raised
+        + " activeWindow=" + asString(workspace.activeWindow && workspace.activeWindow.caption));
+}
+
 function watchClaimedWindow(binding, window) {
     if (window.closed) {
         window.closed.connect(() => {
@@ -570,6 +608,7 @@ function toggleBinding(binding) {
         const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
         trySet(window, "frameGeometry", hidden);
         binding.visible = false;
+        restoreFocusAfterHide(window, lastNonDropdownWindow, binding);
         log("hid " + binding.id
             + " shown=" + geometryText(binding.shownGeometry)
             + " hidden=" + geometryText(hidden));
@@ -736,6 +775,15 @@ function main() {
 
     workspace.windowList().forEach(processWindow);
     workspace.windowAdded.connect(processWindow);
+    rememberFocusWindow(workspace.activeWindow);
+
+    if (workspace.windowActivated) {
+        workspace.windowActivated.connect(rememberFocusWindow);
+    } else if (workspace.clientActivated) {
+        workspace.clientActivated.connect(rememberFocusWindow);
+    } else {
+        log("focus tracking unavailable: no windowActivated signal");
+    }
 
     if (workspace.screensChanged) {
         workspace.screensChanged.connect(() => {

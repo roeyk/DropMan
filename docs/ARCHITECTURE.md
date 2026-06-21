@@ -80,6 +80,10 @@ one matching offscreen window parked on that profile's configured edge, then
 restore it into the current context. This is intentionally narrow to avoid
 broad class-based mutation.
 
+When a dropdown is hidden, DropMan restores focus to the last active window
+that was not one of DropMan's claimed dropdown windows, when KWin exposes the
+needed focus-change signal.
+
 The app owns profile editing and persistence. On save, it writes
 `profiles.json`, mirrors the same JSON into KWin's `Script-dropman` config
 group, and requests a KWin reconfigure. The resident KWin component reads that
