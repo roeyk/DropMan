@@ -121,6 +121,7 @@ QVector<Profile> ProfileStore::defaultProfiles()
             .match = MatchRules{
                 .resourceClass = QStringLiteral("firefox_firefox"),
                 .resourceName = QStringLiteral("firefox"),
+                .captionFilter = QString(),
                 .captionExclude = QStringLiteral("Choose a profile")
             }
         },
@@ -135,7 +136,9 @@ QVector<Profile> ProfileStore::defaultProfiles()
             .heightPercent = 45,
             .match = MatchRules{
                 .resourceClass = QStringLiteral("Uplink"),
-                .resourceName = QStringLiteral("Uplink")
+                .resourceName = QStringLiteral("Uplink"),
+                .captionFilter = QString(),
+                .captionExclude = QString()
             }
         },
         Profile{
@@ -149,7 +152,9 @@ QVector<Profile> ProfileStore::defaultProfiles()
             .heightPercent = 45,
             .match = MatchRules{
                 .resourceClass = QStringLiteral("org.kde.konsole"),
-                .resourceName = QStringLiteral("konsole")
+                .resourceName = QStringLiteral("konsole"),
+                .captionFilter = QString(),
+                .captionExclude = QString()
             }
         }
     };
