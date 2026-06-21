@@ -78,11 +78,17 @@ group, and requests a KWin reconfigure. The resident KWin component reads that
 mirrored config on load and falls back to packaged defaults if it is missing or
 invalid.
 
+The app controls the live runtime by invoking KWin-registered actions through
+KGlobalAccel:
+
+- `DropMan-Claim-<id>` claims the active matching window;
+- `DropMan-Release-<id>` releases the claimed window;
+- `DropMan-<id>` toggles the claimed window.
+
 ## Roadmap Direction
 
 1. Build a Qt6/CMake app with profile editor and logging pane.
-2. Wire claim/release/test actions to the isolated KWin backend.
-3. Harden KWin profile reload behavior and shortcut ownership when profiles
+2. Harden KWin profile reload behavior and shortcut ownership when profiles
    change.
-4. Improve visible toggle behavior and preserved edge geometry.
-5. Add animation and packaging.
+3. Improve visible toggle behavior and preserved edge geometry.
+4. Add animation and packaging.

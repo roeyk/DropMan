@@ -379,6 +379,24 @@ function claimActiveWindow(binding) {
     log("claimed " + asString(window.caption) + " for " + binding.id);
 }
 
+function releaseBinding(binding) {
+    if (!binding.window) {
+        log("no claimed window to release for " + binding.id);
+        return;
+    }
+
+    if (!binding.visible && binding.shownGeometry) {
+        moveWindowToCurrentContext(binding.window, binding);
+        trySet(binding.window, "frameGeometry", binding.shownGeometry);
+        activateWindow(binding.window, binding);
+    }
+
+    log("released " + binding.id + " from " + asString(binding.window.caption));
+    binding.window = null;
+    binding.shownGeometry = null;
+    binding.visible = false;
+}
+
 function registerBinding(config) {
     if (!config.id || !config.shortcut) {
         log("skipping incomplete binding");
@@ -418,6 +436,13 @@ function registerBinding(config) {
             () => claimActiveWindow(binding)
         );
     }
+
+    registerShortcut(
+        "DropMan-Release-" + binding.id,
+        "DropMan: Release " + binding.name,
+        "",
+        () => releaseBinding(binding)
+    );
 }
 
 function processWindow(window) {
