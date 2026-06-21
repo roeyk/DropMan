@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "claim-visible-no-flash-20260621";
+const SCRIPT_VERSION = "recover-offscreen-claim-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -236,6 +236,55 @@ function hiddenGeometry(shown, binding, window) {
     return hidden;
 }
 
+function restoredGeometryFromHidden(hidden, binding, window) {
+    const edge = binding.edge || "top";
+    const restored = {
+        x: hidden.x,
+        y: hidden.y,
+        width: hidden.width,
+        height: hidden.height
+    };
+    const screen = activeOutputGeometry(window);
+
+    if (edge === "top") {
+        restored.y = screen ? screen.y : hidden.y + hidden.height;
+    } else if (edge === "bottom") {
+        restored.y = screen ? screen.y + screen.height - hidden.height : hidden.y - hidden.height;
+    } else if (edge === "left") {
+        restored.x = screen ? screen.x : hidden.x + hidden.width;
+    } else if (edge === "right") {
+        restored.x = screen ? screen.x + screen.width - hidden.width : hidden.x - hidden.width;
+    }
+
+    return restored;
+}
+
+function isParkedOffscreen(geometry, binding, window) {
+    if (!geometry) {
+        return false;
+    }
+
+    const edge = binding.edge || "top";
+    const screen = activeOutputGeometry(window);
+    const tolerance = 4;
+
+    if (!screen) {
+        return false;
+    }
+
+    if (edge === "top") {
+        return geometry.y + geometry.height <= screen.y + tolerance;
+    } else if (edge === "bottom") {
+        return geometry.y >= screen.y + screen.height - tolerance;
+    } else if (edge === "left") {
+        return geometry.x + geometry.width <= screen.x + tolerance;
+    } else if (edge === "right") {
+        return geometry.x >= screen.x + screen.width - tolerance;
+    }
+
+    return false;
+}
+
 function geometryText(geometry) {
     if (!geometry) {
         return "<none>";
@@ -410,20 +459,7 @@ function activateWindow(window, binding) {
         + " activeWindow=" + asString(workspace.activeWindow && workspace.activeWindow.caption));
 }
 
-function finishClaimWindow(binding, window) {
-    binding.window = window;
-    binding.shownGeometry = currentFrameGeometry(window);
-
-    if (binding.shownGeometry) {
-        binding.visible = true;
-        log("claimed " + binding.id
-            + " shown=" + geometryText(binding.shownGeometry)
-            + " left visible");
-    } else {
-        binding.visible = true;
-        log("claimed " + binding.id + " without changing geometry: no output geometry available");
-    }
-
+function watchClaimedWindow(binding, window) {
     if (window.closed) {
         window.closed.connect(() => {
             if (binding.window === window) {
@@ -432,6 +468,22 @@ function finishClaimWindow(binding, window) {
             }
         });
     }
+}
+
+function finishClaimWindow(binding, window) {
+    binding.window = window;
+    binding.shownGeometry = currentFrameGeometry(window);
+    binding.visible = true;
+
+    if (binding.shownGeometry) {
+        log("claimed " + binding.id
+            + " shown=" + geometryText(binding.shownGeometry)
+            + " left visible");
+    } else {
+        log("claimed " + binding.id + " without changing geometry: no output geometry available");
+    }
+
+    watchClaimedWindow(binding, window);
 }
 
 function claimWindow(binding, window) {
@@ -443,11 +495,50 @@ function findWindow(binding) {
     return binding.window || null;
 }
 
+function recoverParkedWindow(binding) {
+    const candidates = [];
+    workspace.windowList().forEach((window) => {
+        if (!matchesBinding(window, binding)) {
+            return;
+        }
+
+        const current = currentFrameGeometry(window);
+        if (isParkedOffscreen(current, binding, window)) {
+            candidates.push({
+                window: window,
+                hidden: current
+            });
+        }
+    });
+
+    if (candidates.length === 0) {
+        return false;
+    }
+
+    if (candidates.length > 1) {
+        log("ambiguous parked windows for " + binding.id + ": " + candidates.length);
+        return false;
+    }
+
+    const candidate = candidates[0];
+    binding.window = candidate.window;
+    binding.shownGeometry = restoredGeometryFromHidden(candidate.hidden, binding, candidate.window);
+    binding.visible = false;
+    watchClaimedWindow(binding, candidate.window);
+    log("recovered parked " + binding.id
+        + " hidden=" + geometryText(candidate.hidden)
+        + " shown=" + geometryText(binding.shownGeometry));
+    return true;
+}
+
 function toggleBinding(binding) {
-    const window = findWindow(binding);
+    let window = findWindow(binding);
     if (!window) {
-        log("no matching window for " + binding.id);
-        return;
+        if (!recoverParkedWindow(binding)) {
+            log("no matching window for " + binding.id);
+            return;
+        }
+        window = findWindow(binding);
     }
 
     if (!binding.shownGeometry) {
