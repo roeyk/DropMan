@@ -31,10 +31,10 @@ produce candidates, but an explicit claim step decides the single managed
 window for each profile.
 
 Default runtime behavior is preserve-current-window-geometry: claiming a
-window captures its current frame rectangle as the shown state, flashes the
-window for confirmation, and leaves it visible. The configured edge controls
-only the offscreen hide direction. DropMan does not resize or repack the window
-during normal toggle.
+window captures its current frame rectangle as the shown state, briefly nudges
+the window as a temporary confirmation signal, and leaves it visible. The
+configured edge controls only the offscreen hide direction. DropMan does not
+resize or repack the window during normal toggle.
 
 Like Yakuake, a claimed window should appear on the virtual desktop/activity
 where its shortcut is invoked. On show, the KWin prototype first moves the
@@ -85,7 +85,7 @@ qdbus6 org.kde.KWin /KWin reconfigure
 Expected KWin logs for the preserve-geometry prototype include:
 
 ```text
-dropman: loaded 3 bindings; scriptVersion=live-picked-claim-20260621
+dropman: loaded 3 bindings; scriptVersion=geometry-flash-20260621
 dropman: claimed ... shown=... left visible
 dropman: hid ... shown=... hidden=...
 dropman: context for ... movedDesktop=...

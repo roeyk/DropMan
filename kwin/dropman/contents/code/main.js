@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "live-picked-claim-20260621";
+const SCRIPT_VERSION = "geometry-flash-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -244,48 +244,82 @@ function geometryText(geometry) {
         + geometry.width + "x" + geometry.height;
 }
 
-function flashWindow(window, binding) {
+function nudgeGeometry(geometry, binding) {
+    const nudged = {
+        x: geometry.x,
+        y: geometry.y,
+        width: geometry.width,
+        height: geometry.height
+    };
+    const amount = 18;
+    const edge = binding.edge || "top";
+
+    if (edge === "top") {
+        nudged.y -= amount;
+    } else if (edge === "bottom") {
+        nudged.y += amount;
+    } else if (edge === "left") {
+        nudged.x -= amount;
+    } else if (edge === "right") {
+        nudged.x += amount;
+    }
+
+    return nudged;
+}
+
+function runDelayed(delayMs, callback) {
     try {
-        if (typeof animate !== "function" || typeof Effect === "undefined") {
-            log("flash unavailable for " + binding.id + ": KWin animation API not exposed");
+        if (typeof setTimeout === "function") {
+            setTimeout(callback, delayMs);
+            return true;
+        }
+    } catch (error) {
+        log("setTimeout failed: " + error);
+    }
+
+    try {
+        if (typeof callLater === "function") {
+            callLater(callback);
+            return true;
+        }
+    } catch (error) {
+        log("callLater failed: " + error);
+    }
+
+    return false;
+}
+
+function flashWindow(window, binding, done) {
+    const original = currentFrameGeometry(window);
+    if (!original) {
+        done();
+        return;
+    }
+
+    // Temporary confirmation until DropMan has a proper visual overlay/effect.
+    const nudged = nudgeGeometry(original, binding);
+    const frames = [nudged, original, nudged, original];
+    let index = 0;
+
+    function step() {
+        if (index >= frames.length) {
+            trySet(window, "frameGeometry", original);
+            log("flashed " + binding.id + " twice using geometry");
+            done();
             return;
         }
 
-        animate({
-            window: window,
-            type: Effect.Opacity,
-            duration: 90,
-            from: 1.0,
-            to: 0.35
-        });
-        animate({
-            window: window,
-            type: Effect.Opacity,
-            duration: 90,
-            delay: 90,
-            from: 0.35,
-            to: 1.0
-        });
-        animate({
-            window: window,
-            type: Effect.Opacity,
-            duration: 90,
-            delay: 180,
-            from: 1.0,
-            to: 0.35
-        });
-        animate({
-            window: window,
-            type: Effect.Opacity,
-            duration: 90,
-            delay: 270,
-            from: 0.35,
-            to: 1.0
-        });
-        log("flashed " + binding.id + " twice");
-    } catch (error) {
-        log("flash failed for " + binding.id + ": " + error);
+        trySet(window, "frameGeometry", frames[index]);
+        index += 1;
+
+        if (!runDelayed(70, step)) {
+            trySet(window, "frameGeometry", original);
+            log("flash unavailable for " + binding.id + ": no timer API exposed");
+            done();
+        }
     }
+
+    step();
 }
 
 function windowIdentityText(window) {
@@ -454,11 +488,9 @@ function activateWindow(window, binding) {
         + " activeWindow=" + asString(workspace.activeWindow && workspace.activeWindow.caption));
 }
 
-function claimWindow(binding, window) {
+function finishClaimWindow(binding, window) {
     binding.window = window;
     binding.shownGeometry = currentFrameGeometry(window);
-    prepareWindow(window, binding);
-    flashWindow(window, binding);
 
     if (binding.shownGeometry) {
         binding.visible = true;
@@ -478,6 +510,11 @@ function claimWindow(binding, window) {
             }
         });
     }
+}
+
+function claimWindow(binding, window) {
+    prepareWindow(window, binding);
+    flashWindow(window, binding, () => finishClaimWindow(binding, window));
 }
 
 function findWindow(binding) {
