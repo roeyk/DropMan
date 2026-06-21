@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "claim-flash-leave-visible-20260621";
+const SCRIPT_VERSION = "live-picked-claim-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -551,8 +551,8 @@ function claimActiveWindow(binding) {
 
 function pickedWindowForBinding(binding) {
     const pendingClaim = (runtimeConfig && runtimeConfig.pendingClaim) || {};
-    const profileId = asString(pendingClaim.profileId || readConfig("pendingClaimProfileId", ""));
-    const uuid = asString(pendingClaim.windowUuid || readConfig("pendingClaimWindowUuid", ""));
+    const profileId = asString(readConfig("pendingClaimProfileId", "") || pendingClaim.profileId);
+    const uuid = asString(readConfig("pendingClaimWindowUuid", "") || pendingClaim.windowUuid);
 
     if (profileId !== binding.id) {
         log("pending picked claim is for " + profileId + ", not " + binding.id);

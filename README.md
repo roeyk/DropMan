@@ -85,7 +85,7 @@ qdbus6 org.kde.KWin /KWin reconfigure
 Expected KWin logs for the preserve-geometry prototype include:
 
 ```text
-dropman: loaded 3 bindings; scriptVersion=claim-flash-leave-visible-20260621
+dropman: loaded 3 bindings; scriptVersion=live-picked-claim-20260621
 dropman: claimed ... shown=... left visible
 dropman: hid ... shown=... hidden=...
 dropman: context for ... movedDesktop=...
