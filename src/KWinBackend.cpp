@@ -97,12 +97,48 @@ QString pickedWindowUuid(const QString &pickerOutput)
     return match.hasMatch() ? match.captured(1).trimmed() : QString();
 }
 
-QString pickedWindowCaption(const QString &pickerOutput)
+QString pickedWindowField(const QString &pickerOutput, const QString &field)
 {
-    const QRegularExpression captionLine(QStringLiteral(R"(^caption:\s*(.+?)\s*$)"),
-                                         QRegularExpression::MultilineOption);
-    const auto match = captionLine.match(pickerOutput);
+    const QRegularExpression line(
+        QStringLiteral(R"(^%1:\s*(.*?)\s*$)").arg(QRegularExpression::escape(field)),
+        QRegularExpression::MultilineOption);
+    const auto match = line.match(pickerOutput);
     return match.hasMatch() ? match.captured(1).trimmed() : QString();
+}
+
+QString pickedWindowCaptionValue(const QString &pickerOutput)
+{
+    return pickedWindowField(pickerOutput, QStringLiteral("caption"));
+}
+
+bool containsMatch(const QString &actual, const QString &expected)
+{
+    return expected.isEmpty() || actual.contains(expected, Qt::CaseInsensitive);
+}
+
+bool containsExcluded(const QString &actual, const QString &expected)
+{
+    return !expected.isEmpty() && actual.contains(expected, Qt::CaseInsensitive);
+}
+
+bool pickedWindowMatchesProfile(const QString &pickerOutput, const Profile &profile)
+{
+    const QString resourceClass = pickedWindowField(pickerOutput, QStringLiteral("resourceClass"));
+    const QString resourceName = pickedWindowField(pickerOutput, QStringLiteral("resourceName"));
+    const QString caption = pickedWindowCaptionValue(pickerOutput);
+
+    return containsMatch(resourceClass, profile.match.resourceClass)
+        && containsMatch(resourceName, profile.match.resourceName)
+        && containsMatch(caption, profile.match.captionFilter)
+        && !containsExcluded(caption, profile.match.captionExclude);
+}
+
+QString pickedWindowSummary(const QString &pickerOutput)
+{
+    return QStringLiteral("resourceClass=%1 resourceName=%2 caption=%3")
+        .arg(pickedWindowField(pickerOutput, QStringLiteral("resourceClass")),
+             pickedWindowField(pickerOutput, QStringLiteral("resourceName")),
+             pickedWindowCaptionValue(pickerOutput));
 }
 
 bool writePendingClaim(const Profile &profile, const QString &uuid, QString *errorMessage)
@@ -176,16 +212,22 @@ void KWinBackend::claimPickedWindow(Profile &profile)
         return;
     }
 
-    if (!writePendingClaim(profile, uuid, &error)) {
-        emit logMessage(QStringLiteral("Could not stage picked window claim: %1").arg(error));
-        return;
-    }
-
-    const QString caption = pickedWindowCaption(pickerOutput);
+    const QString caption = pickedWindowCaptionValue(pickerOutput);
     emit logMessage(QStringLiteral("Picked %1 for %2; uuid=%3")
                         .arg(caption.isEmpty() ? QStringLiteral("<unnamed window>") : caption,
                              profile.name,
                              uuid));
+
+    if (!pickedWindowMatchesProfile(pickerOutput, profile)) {
+        emit logMessage(QStringLiteral("Picked window does not match %1 profile: %2")
+                            .arg(profile.name, pickedWindowSummary(pickerOutput)));
+        return;
+    }
+
+    if (!writePendingClaim(profile, uuid, &error)) {
+        emit logMessage(QStringLiteral("Could not stage picked window claim: %1").arg(error));
+        return;
+    }
 
     if (!reconfigureKWin()) {
         emit logMessage(QStringLiteral("Could not request KWin reconfigure for pending picked claim"));
