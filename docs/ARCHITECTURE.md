@@ -55,6 +55,7 @@ Default geometry mode is `preserve_geometry`:
 
 - claim captures the active window's current `frameGeometry` as
   `shownGeometry`;
+- claim leaves the window visible after a brief confirmation flash;
 - hide translates that exact rectangle fully offscreen in the configured edge
   direction;
 - show restores `shownGeometry` exactly;
@@ -68,9 +69,10 @@ The configured edge controls hide direction, not forced shown geometry, in the
 default mode. Profile size percentages should only take effect later through an
 explicit mode such as `resize_to_profile`.
 
-Claiming a window parks it in hidden edge geometry immediately. That makes the
-next profile toggle a visible "show" action instead of requiring two toggles
-after claim.
+Claiming a window does not hide it. The next profile toggle hides it if the
+window is already visible on the current desktop/activity. If the user has
+moved to another desktop/activity, that toggle first brings the claimed window
+to the current context, matching Yakuake-style invocation behavior.
 
 The app owns profile editing and persistence. On save, it writes
 `profiles.json`, mirrors the same JSON into KWin's `Script-dropman` config

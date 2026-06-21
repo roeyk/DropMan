@@ -5,6 +5,7 @@
     - register configured global shortcuts;
     - claim only the active window when a claim shortcut is pressed;
     - preserve the claimed window geometry as the shown state;
+    - leave newly claimed windows visible;
     - hide by moving that exact rectangle offscreen along the configured edge.
 
     Design rule: match many, bind one. Matching rules identify candidates only.
@@ -12,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "picked-claim-config-20260621";
+const SCRIPT_VERSION = "claim-flash-leave-visible-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -243,6 +244,50 @@ function geometryText(geometry) {
         + geometry.width + "x" + geometry.height;
 }
 
+function flashWindow(window, binding) {
+    try {
+        if (typeof animate !== "function" || typeof Effect === "undefined") {
+            log("flash unavailable for " + binding.id + ": KWin animation API not exposed");
+            return;
+        }
+
+        animate({
+            window: window,
+            type: Effect.Opacity,
+            duration: 90,
+            from: 1.0,
+            to: 0.35
+        });
+        animate({
+            window: window,
+            type: Effect.Opacity,
+            duration: 90,
+            delay: 90,
+            from: 0.35,
+            to: 1.0
+        });
+        animate({
+            window: window,
+            type: Effect.Opacity,
+            duration: 90,
+            delay: 180,
+            from: 1.0,
+            to: 0.35
+        });
+        animate({
+            window: window,
+            type: Effect.Opacity,
+            duration: 90,
+            delay: 270,
+            from: 0.35,
+            to: 1.0
+        });
+        log("flashed " + binding.id + " twice");
+    } catch (error) {
+        log("flash failed for " + binding.id + ": " + error);
+    }
+}
+
 function windowIdentityText(window) {
     const values = [];
     ["uuid", "internalId", "windowId", "id"].forEach((key) => {
@@ -336,6 +381,63 @@ function moveWindowToCurrentContext(window, binding) {
         + " movedActivity=" + movedActivity);
 }
 
+function contextId(value) {
+    if (!value) {
+        return "";
+    }
+    if (typeof value === "string") {
+        return value;
+    }
+    const id = propertyText(value, "id");
+    return id || asString(value);
+}
+
+function sameContextId(left, right) {
+    const leftId = normalizedId(contextId(left));
+    const rightId = normalizedId(contextId(right));
+    return leftId && rightId && leftId === rightId;
+}
+
+function windowOnCurrentDesktop(window) {
+    const desktop = currentDesktop();
+    if (!desktop) {
+        return true;
+    }
+
+    if ("desktops" in window && window.desktops) {
+        for (let i = 0; i < window.desktops.length; ++i) {
+            if (sameContextId(window.desktops[i], desktop)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    if ("desktop" in window) {
+        return sameContextId(window.desktop, desktop);
+    }
+
+    return true;
+}
+
+function windowOnCurrentActivity(window) {
+    if (!workspace.currentActivity || !("activities" in window) || !window.activities) {
+        return true;
+    }
+
+    for (let i = 0; i < window.activities.length; ++i) {
+        if (sameContextId(window.activities[i], workspace.currentActivity)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function windowOnCurrentContext(window) {
+    return windowOnCurrentDesktop(window) && windowOnCurrentActivity(window);
+}
+
 function activateWindow(window, binding) {
     trySet(window, "minimized", false);
 
@@ -356,14 +458,13 @@ function claimWindow(binding, window) {
     binding.window = window;
     binding.shownGeometry = currentFrameGeometry(window);
     prepareWindow(window, binding);
+    flashWindow(window, binding);
 
     if (binding.shownGeometry) {
-        const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
-        trySet(window, "frameGeometry", hidden);
-        binding.visible = false;
-        log("claimed and hid " + binding.id
+        binding.visible = true;
+        log("claimed " + binding.id
             + " shown=" + geometryText(binding.shownGeometry)
-            + " hidden=" + geometryText(hidden));
+            + " left visible");
     } else {
         binding.visible = true;
         log("claimed " + binding.id + " without changing geometry: no output geometry available");
@@ -402,6 +503,15 @@ function toggleBinding(binding) {
     prepareWindow(window, binding);
 
     if (binding.visible) {
+        if (!windowOnCurrentContext(window)) {
+            moveWindowToCurrentContext(window, binding);
+            trySet(window, "frameGeometry", binding.shownGeometry);
+            activateWindow(window, binding);
+            log("moved visible " + binding.id
+                + " to current context shown=" + geometryText(binding.shownGeometry));
+            return;
+        }
+
         const current = currentFrameGeometry(window);
         if (current) {
             binding.shownGeometry = current;
@@ -439,19 +549,19 @@ function claimActiveWindow(binding) {
     log("claimed " + asString(window.caption) + " for " + binding.id);
 }
 
-function claimPickedWindow(binding) {
+function pickedWindowForBinding(binding) {
     const pendingClaim = (runtimeConfig && runtimeConfig.pendingClaim) || {};
     const profileId = asString(pendingClaim.profileId || readConfig("pendingClaimProfileId", ""));
     const uuid = asString(pendingClaim.windowUuid || readConfig("pendingClaimWindowUuid", ""));
 
     if (profileId !== binding.id) {
         log("pending picked claim is for " + profileId + ", not " + binding.id);
-        return;
+        return null;
     }
 
     if (!uuid) {
         log("no pending picked window uuid for " + binding.id);
-        return;
+        return null;
     }
 
     const window = findWindowByUuid(uuid);
@@ -461,19 +571,41 @@ function claimPickedWindow(binding) {
             log("available window: " + asString(candidate.caption)
                 + " " + windowIdentityText(candidate));
         });
-        return;
+        return null;
     }
 
     if (!matchesBinding(window, binding)) {
         log("picked window does not match candidate rules for " + binding.id
             + ": " + asString(window.caption)
             + " " + windowIdentityText(window));
+        return null;
+    }
+
+    return {
+        window: window,
+        uuid: uuid
+    };
+}
+
+function flashPickedWindow(binding) {
+    const picked = pickedWindowForBinding(binding);
+    if (!picked) {
         return;
     }
 
+    flashWindow(picked.window, binding);
+}
+
+function claimPickedWindow(binding) {
+    const picked = pickedWindowForBinding(binding);
+    if (!picked) {
+        return;
+    }
+
+    const window = picked.window;
     claimWindow(binding, window);
     log("claimed picked " + asString(window.caption) + " for " + binding.id
-        + " uuid=" + uuid);
+        + " uuid=" + picked.uuid);
 }
 
 function releaseBinding(binding) {
@@ -539,6 +671,13 @@ function registerBinding(config) {
         "DropMan: Claim picked " + binding.name,
         "",
         () => claimPickedWindow(binding)
+    );
+
+    registerShortcut(
+        "DropMan-FlashPicked-" + binding.id,
+        "DropMan: Flash picked " + binding.name,
+        "",
+        () => flashPickedWindow(binding)
     );
 
     registerShortcut(
