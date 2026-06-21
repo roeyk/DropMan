@@ -222,6 +222,11 @@ void MainWindow::showClaimNotice(const QString &profileName, const QString &wind
     m_claimNotice = notice;
     notice->show();
     notice->raise();
+    QTimer::singleShot(0, notice, [notice]() {
+        if (notice->isVisible()) {
+            notice->raise();
+        }
+    });
 
     QTimer::singleShot(5000, notice, [this, notice, effect]() {
         if (!notice->isVisible()) {

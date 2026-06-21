@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "claim-control-guard-20260621";
+const SCRIPT_VERSION = "claim-notice-top-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -416,6 +416,32 @@ function isDropManControlWindow(window) {
         || resourceClass === "dropman"
         || resourceName === "dropman"
         || desktopFile === "dropman";
+}
+
+function isDropManNoticeWindow(window) {
+    return lower(window && window.caption) === "dropman claim confirmation";
+}
+
+function prepareNoticeWindow(window) {
+    trySet(window, "keepAbove", true);
+    trySet(window, "skipTaskbar", true);
+    trySet(window, "skipPager", true);
+
+    if (workspace.currentActivity && "activities" in window) {
+        trySet(window, "activities", [workspace.currentActivity]);
+    }
+
+    const desktop = currentDesktop();
+    if (desktop) {
+        if ("desktops" in window) {
+            trySet(window, "desktops", [desktop]);
+        } else {
+            trySet(window, "desktop", desktop);
+        }
+    }
+
+    tryCall(workspace, "raiseWindow", window) || tryCall(window, "raise");
+    log("prepared claim notice window keepAbove=true caption=" + asString(window.caption));
 }
 
 function rememberFocusWindow(window) {
@@ -962,6 +988,11 @@ function registerBinding(config) {
 }
 
 function processWindow(window) {
+    if (isDropManNoticeWindow(window)) {
+        prepareNoticeWindow(window);
+        return;
+    }
+
     if (isDropManControlWindow(window)) {
         return;
     }
