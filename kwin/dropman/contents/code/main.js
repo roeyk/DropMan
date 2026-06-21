@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "persistent-claims-20260621";
+const SCRIPT_VERSION = "reload-recovery-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -68,7 +68,6 @@ const DEFAULT_CONFIG = {
 const bindings = new Map();
 let runtimeConfig = null;
 let lastNonDropdownWindow = null;
-let claimState = {};
 
 function log(message) {
     console.info(LOG_PREFIX + message);
@@ -148,39 +147,6 @@ function readRuntimeConfig() {
     }
 
     return DEFAULT_CONFIG;
-}
-
-function readClaimState() {
-    const claimsJson = readConfig("claimsJson", "");
-    if (!claimsJson) {
-        return {};
-    }
-
-    try {
-        const parsed = JSON.parse(claimsJson);
-        if (parsed && parsed.claims) {
-            log("loaded persisted claim state for " + Object.keys(parsed.claims).length + " profiles");
-            return parsed.claims;
-        }
-        log("claimsJson did not contain a claims object");
-    } catch (error) {
-        log("could not parse claimsJson: " + error);
-    }
-
-    return {};
-}
-
-function writeClaimState() {
-    const root = {
-        schemaVersion: 1,
-        claims: claimState
-    };
-
-    try {
-        writeConfig("claimsJson", JSON.stringify(root));
-    } catch (error) {
-        log("could not persist claim state: " + error);
-    }
 }
 
 function windowText(window, key) {
@@ -326,23 +292,6 @@ function geometryText(geometry) {
     }
     return geometry.x + "," + geometry.y + " "
         + geometry.width + "x" + geometry.height;
-}
-
-function geometryToState(geometry) {
-    if (!geometry) {
-        return null;
-    }
-
-    return {
-        x: geometry.x,
-        y: geometry.y,
-        width: geometry.width,
-        height: geometry.height
-    };
-}
-
-function geometryFromState(state) {
-    return copyGeometry(state);
 }
 
 function windowUuid(window) {
@@ -578,36 +527,9 @@ function watchClaimedWindow(binding, window) {
             if (binding.window === window) {
                 binding.window = null;
                 binding.visible = false;
-                delete claimState[binding.id];
-                writeClaimState();
             }
         });
     }
-}
-
-function persistBindingState(binding) {
-    if (!binding.window) {
-        delete claimState[binding.id];
-        writeClaimState();
-        return;
-    }
-
-    const uuid = windowUuid(binding.window);
-    if (!uuid) {
-        log("could not persist " + binding.id + ": no stable window id");
-        return;
-    }
-
-    claimState[binding.id] = {
-        windowUuid: uuid,
-        shownGeometry: geometryToState(binding.shownGeometry),
-        visible: binding.visible === true
-    };
-    writeClaimState();
-    log("persisted claim " + binding.id
-        + " visible=" + claimState[binding.id].visible
-        + " shown=" + geometryText(binding.shownGeometry)
-        + " uuid=" + uuid);
 }
 
 function finishClaimWindow(binding, window) {
@@ -624,7 +546,6 @@ function finishClaimWindow(binding, window) {
     }
 
     watchClaimedWindow(binding, window);
-    persistBindingState(binding);
 }
 
 function claimWindow(binding, window) {
@@ -666,17 +587,45 @@ function recoverParkedWindow(binding) {
     binding.shownGeometry = restoredGeometryFromHidden(candidate.hidden, binding, candidate.window);
     binding.visible = false;
     watchClaimedWindow(binding, candidate.window);
-    persistBindingState(binding);
     log("recovered parked " + binding.id
         + " hidden=" + geometryText(candidate.hidden)
         + " shown=" + geometryText(binding.shownGeometry));
     return true;
 }
 
+function recoverSoleMatchingWindow(binding) {
+    const candidates = [];
+    workspace.windowList().forEach((window) => {
+        if (matchesBinding(window, binding)) {
+            candidates.push(window);
+        }
+    });
+
+    if (candidates.length === 0) {
+        return false;
+    }
+
+    if (candidates.length > 1) {
+        log("ambiguous matching windows for " + binding.id + ": " + candidates.length);
+        return false;
+    }
+
+    const window = candidates[0];
+    binding.window = window;
+    binding.shownGeometry = currentFrameGeometry(window);
+    binding.visible = !isParkedOffscreen(binding.shownGeometry, binding, window);
+    watchClaimedWindow(binding, window);
+    log("recovered sole matching " + binding.id
+        + " visible=" + binding.visible
+        + " shown=" + geometryText(binding.shownGeometry)
+        + " " + windowIdentityText(window));
+    return true;
+}
+
 function toggleBinding(binding) {
     let window = findWindow(binding);
     if (!window) {
-        if (!recoverParkedWindow(binding)) {
+        if (!recoverParkedWindow(binding) && !recoverSoleMatchingWindow(binding)) {
             log("no matching window for " + binding.id);
             return;
         }
@@ -706,7 +655,6 @@ function toggleBinding(binding) {
             trySet(window, "frameGeometry", binding.shownGeometry);
             activateWindow(window, binding);
             binding.visible = true;
-            persistBindingState(binding);
             log("moved visible " + binding.id
                 + " to current context shown=" + geometryText(binding.shownGeometry));
             return;
@@ -716,7 +664,6 @@ function toggleBinding(binding) {
             trySet(window, "frameGeometry", binding.shownGeometry);
             activateWindow(window, binding);
             binding.visible = true;
-            persistBindingState(binding);
             log("raised visible " + binding.id
                 + " shown=" + geometryText(binding.shownGeometry));
             return;
@@ -730,7 +677,6 @@ function toggleBinding(binding) {
         const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
         trySet(window, "frameGeometry", hidden);
         binding.visible = false;
-        persistBindingState(binding);
         restoreFocusAfterHide(window, lastNonDropdownWindow, binding);
         log("hid " + binding.id
             + " shown=" + geometryText(binding.shownGeometry)
@@ -740,7 +686,6 @@ function toggleBinding(binding) {
         trySet(window, "frameGeometry", binding.shownGeometry);
         activateWindow(window, binding);
         binding.visible = true;
-        persistBindingState(binding);
         log("showed " + binding.id
             + " shown=" + geometryText(binding.shownGeometry)
             + " recoveredOffscreen=" + liveParkedOffscreen);
@@ -830,8 +775,6 @@ function releaseBinding(binding) {
     binding.window = null;
     binding.shownGeometry = null;
     binding.visible = false;
-    delete claimState[binding.id];
-    writeClaimState();
 }
 
 function registerBinding(config) {
@@ -897,45 +840,9 @@ function processWindow(window) {
     });
 }
 
-function restorePersistedClaim(binding) {
-    const state = claimState[binding.id];
-    if (!state || !state.windowUuid) {
-        return false;
-    }
-
-    const window = findWindowByUuid(state.windowUuid);
-    if (!window) {
-        log("persisted claim window missing for " + binding.id + " uuid=" + state.windowUuid);
-        delete claimState[binding.id];
-        writeClaimState();
-        return false;
-    }
-
-    if (!matchesBinding(window, binding)) {
-        log("persisted claim no longer matches " + binding.id
-            + ": " + asString(window.caption)
-            + " " + windowIdentityText(window));
-        delete claimState[binding.id];
-        writeClaimState();
-        return false;
-    }
-
-    binding.window = window;
-    binding.shownGeometry = geometryFromState(state.shownGeometry) || currentFrameGeometry(window);
-    binding.visible = state.visible === true;
-    watchClaimedWindow(binding, window);
-    log("restored persisted claim " + binding.id
-        + " visible=" + binding.visible
-        + " shown=" + geometryText(binding.shownGeometry)
-        + " uuid=" + state.windowUuid);
-    return true;
-}
-
 function main() {
     runtimeConfig = readRuntimeConfig();
-    claimState = readClaimState();
     (runtimeConfig.bindings || []).forEach(registerBinding);
-    bindings.forEach(restorePersistedClaim);
 
     workspace.windowList().forEach(processWindow);
     workspace.windowAdded.connect(processWindow);
