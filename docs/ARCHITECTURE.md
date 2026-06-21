@@ -22,7 +22,7 @@ Each binding has:
 - a display `name`;
 - a KDE shortcut string;
 - an edge: `top`, `right`, `bottom`, or `left`;
-- size percentages for the active screen;
+- size percentages for a future explicit resize mode;
 - match criteria for `resourceClass`, `resourceName`, `windowClass`, or
   `caption`.
 
@@ -48,6 +48,20 @@ Claimed-window mutations should stay minimal in early runtime testing. Edge
 geometry movement is the first behavior to validate; hints such as no-border,
 skip-taskbar, all-desktops, or keep-above are opt-in profile settings.
 
+Default geometry mode is `preserve_geometry`:
+
+- claim captures the active window's current `frameGeometry` as
+  `shownGeometry`;
+- hide translates that exact rectangle fully offscreen in the configured edge
+  direction;
+- show restores `shownGeometry` exactly;
+- if the user moves or resizes the claimed window while visible, the stored
+  `shownGeometry` is updated on the next hide.
+
+The configured edge controls hide direction, not forced shown geometry, in the
+default mode. Profile size percentages should only take effect later through an
+explicit mode such as `resize_to_profile`.
+
 Claiming a window parks it in hidden edge geometry immediately. That makes the
 next profile toggle a visible "show" action instead of requiring two toggles
 after claim.
@@ -57,5 +71,5 @@ after claim.
 1. Build a Qt6/CMake app with profile editor and logging pane.
 2. Wire claim/release/test actions to the isolated KWin backend.
 3. Persist profiles.
-4. Improve visible toggle behavior and edge geometry.
+4. Improve visible toggle behavior and preserved edge geometry.
 5. Add animation and packaging.

@@ -23,12 +23,17 @@ backend prototype. The first milestone is meant to prove the control model:
 - edit persistent dropdown profiles;
 - inspect KWin identity fields for candidate windows;
 - claim exactly one selected window per profile;
-- move that window on and off screen from a configured edge;
+- move that window on and off screen while preserving its claimed geometry;
 - keep target apps unaware of dropdown mode.
 
 The central design rule is: match many, bind one. Class/resource matching may
 produce candidates, but an explicit claim step decides the single managed
 window for each profile.
+
+Default runtime behavior is preserve-current-window-geometry: claiming a
+window captures its current frame rectangle as the shown state. The configured
+edge controls only the offscreen hide direction. DropMan does not resize or
+repack the window during normal toggle.
 
 ## Repository Layout
 
@@ -84,6 +89,10 @@ The starter profiles use identity fields observed on Geshem:
 - Firefox: `resourceClass=firefox_firefox`, `resourceName=firefox`
 - Uplink: `resourceClass=Uplink`, `resourceName=Uplink`
 - Konsole: `resourceClass=org.kde.konsole`, `resourceName=konsole`
+
+`widthPercent` and `heightPercent` remain in the prototype config as future
+profile metadata, but the default runtime mode does not use them to compute the
+shown rectangle.
 
 ## License
 

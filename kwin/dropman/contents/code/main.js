@@ -4,8 +4,8 @@
     Prototype behavior:
     - register configured global shortcuts;
     - claim only the active window when a claim shortcut is pressed;
-    - toggle that window between visible dropdown geometry and hidden offscreen
-      geometry on one of the four screen edges.
+    - preserve the claimed window geometry as the shown state;
+    - hide by moving that exact rectangle offscreen along the configured edge.
 
     Design rule: match many, bind one. Matching rules identify candidates only.
     They must not mutate every matching app window.
@@ -75,14 +75,6 @@ function asString(value) {
 
 function lower(value) {
     return asString(value).toLowerCase();
-}
-
-function clampPercent(value, fallback) {
-    const numberValue = Number(value);
-    if (!isFinite(numberValue)) {
-        return fallback;
-    }
-    return Math.max(5, Math.min(100, numberValue));
 }
 
 function trySet(window, property, value) {
@@ -166,51 +158,41 @@ function activeOutputGeometry(window) {
     return null;
 }
 
-function visibleGeometry(window, binding) {
-    const screen = activeOutputGeometry(window);
-    if (!screen) {
+function copyGeometry(geometry) {
+    if (!geometry) {
         return null;
     }
 
-    const widthPercent = clampPercent(binding.widthPercent, 100);
-    const heightPercent = clampPercent(binding.heightPercent, 45);
-    const width = Math.round(screen.width * widthPercent / 100);
-    const height = Math.round(screen.height * heightPercent / 100);
-    const edge = binding.edge || "top";
-
-    let x = screen.x + Math.round((screen.width - width) / 2);
-    let y = screen.y + Math.round((screen.height - height) / 2);
-
-    if (edge === "top") {
-        y = screen.y;
-    } else if (edge === "bottom") {
-        y = screen.y + screen.height - height;
-    } else if (edge === "left") {
-        x = screen.x;
-    } else if (edge === "right") {
-        x = screen.x + screen.width - width;
-    }
-
-    return { x: x, y: y, width: width, height: height };
+    return {
+        x: geometry.x,
+        y: geometry.y,
+        width: geometry.width,
+        height: geometry.height
+    };
 }
 
-function hiddenGeometry(visible, binding) {
+function currentFrameGeometry(window) {
+    return copyGeometry(window && window.frameGeometry);
+}
+
+function hiddenGeometry(shown, binding, window) {
     const edge = binding.edge || "top";
     const hidden = {
-        x: visible.x,
-        y: visible.y,
-        width: visible.width,
-        height: visible.height
+        x: shown.x,
+        y: shown.y,
+        width: shown.width,
+        height: shown.height
     };
+    const screen = activeOutputGeometry(window);
 
     if (edge === "top") {
-        hidden.y = visible.y - visible.height;
+        hidden.y = screen ? screen.y - shown.height : shown.y - shown.height;
     } else if (edge === "bottom") {
-        hidden.y = visible.y + visible.height;
+        hidden.y = screen ? screen.y + screen.height : shown.y + shown.height;
     } else if (edge === "left") {
-        hidden.x = visible.x - visible.width;
+        hidden.x = screen ? screen.x - shown.width : shown.x - shown.width;
     } else if (edge === "right") {
-        hidden.x = visible.x + visible.width;
+        hidden.x = screen ? screen.x + screen.width : shown.x + shown.width;
     }
 
     return hidden;
@@ -262,15 +244,15 @@ function activateWindow(window, binding) {
 
 function claimWindow(binding, window) {
     binding.window = window;
+    binding.shownGeometry = currentFrameGeometry(window);
     prepareWindow(window, binding);
 
-    const visible = visibleGeometry(window, binding);
-    if (visible) {
-        const hidden = hiddenGeometry(visible, binding);
+    if (binding.shownGeometry) {
+        const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
         trySet(window, "frameGeometry", hidden);
         binding.visible = false;
         log("claimed and hid " + binding.id
-            + " visible=" + geometryText(visible)
+            + " shown=" + geometryText(binding.shownGeometry)
             + " hidden=" + geometryText(hidden));
     } else {
         binding.visible = true;
@@ -298,26 +280,34 @@ function toggleBinding(binding) {
         return;
     }
 
-    const visible = visibleGeometry(window, binding);
-    if (!visible) {
-        log("no output geometry available for " + binding.id);
+    if (!binding.shownGeometry) {
+        binding.shownGeometry = currentFrameGeometry(window);
+    }
+
+    if (!binding.shownGeometry) {
+        log("no shown geometry available for " + binding.id);
         return;
     }
 
     prepareWindow(window, binding);
 
     if (binding.visible) {
-        const hidden = hiddenGeometry(visible, binding);
+        const current = currentFrameGeometry(window);
+        if (current) {
+            binding.shownGeometry = current;
+        }
+
+        const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
         trySet(window, "frameGeometry", hidden);
         binding.visible = false;
         log("hid " + binding.id
-            + " visible=" + geometryText(visible)
+            + " shown=" + geometryText(binding.shownGeometry)
             + " hidden=" + geometryText(hidden));
     } else {
-        trySet(window, "frameGeometry", visible);
+        trySet(window, "frameGeometry", binding.shownGeometry);
         activateWindow(window, binding);
         binding.visible = true;
-        log("showed " + binding.id + " visible=" + geometryText(visible));
+        log("showed " + binding.id + " shown=" + geometryText(binding.shownGeometry));
     }
 }
 
@@ -355,6 +345,7 @@ function registerBinding(config) {
         claimShortcut: config.claimShortcut,
         windowHints: config.windowHints || {},
         window: null,
+        shownGeometry: null,
         visible: false
     };
 
@@ -395,11 +386,12 @@ function main() {
     if (workspace.screensChanged) {
         workspace.screensChanged.connect(() => {
             bindings.forEach((binding) => {
-                if (binding.window && binding.visible) {
-                    const visible = visibleGeometry(binding.window, binding);
-                    if (visible) {
-                        trySet(binding.window, "frameGeometry", visible);
-                    }
+                if (binding.window && !binding.visible && binding.shownGeometry) {
+                    const hidden = hiddenGeometry(binding.shownGeometry, binding, binding.window);
+                    trySet(binding.window, "frameGeometry", hidden);
+                    log("reparked hidden " + binding.id
+                        + " shown=" + geometryText(binding.shownGeometry)
+                        + " hidden=" + geometryText(hidden));
                 }
             });
         });
