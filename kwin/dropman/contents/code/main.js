@@ -12,6 +12,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
+const SCRIPT_VERSION = "preserve-geometry-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -397,7 +398,7 @@ function main() {
         });
     }
 
-    log("loaded " + bindings.size + " bindings");
+    log("loaded " + bindings.size + " bindings; scriptVersion=" + SCRIPT_VERSION);
 }
 
 main();

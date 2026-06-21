@@ -76,6 +76,18 @@ Restart KWin if needed:
 qdbus6 org.kde.KWin /KWin reconfigure
 ```
 
+Expected KWin logs for the preserve-geometry prototype include:
+
+```text
+dropman: loaded 3 bindings; scriptVersion=preserve-geometry-20260621
+dropman: claimed and hid ... shown=... hidden=...
+dropman: showed ... shown=...
+```
+
+If logs still say `visible=...`, KWin is running an older installed copy of
+the script. Re-run the install helper, reconfigure KWin, and log out/in if KWin
+keeps the stale script in memory.
+
 ## Configure Bindings
 
 Edit:
