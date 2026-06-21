@@ -12,7 +12,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "picked-claim-20260621";
+const SCRIPT_VERSION = "picked-claim-config-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -65,6 +65,7 @@ const DEFAULT_CONFIG = {
 };
 
 const bindings = new Map();
+let runtimeConfig = null;
 
 function log(message) {
     console.info(LOG_PREFIX + message);
@@ -439,8 +440,9 @@ function claimActiveWindow(binding) {
 }
 
 function claimPickedWindow(binding) {
-    const profileId = asString(readConfig("pendingClaimProfileId", ""));
-    const uuid = asString(readConfig("pendingClaimWindowUuid", ""));
+    const pendingClaim = (runtimeConfig && runtimeConfig.pendingClaim) || {};
+    const profileId = asString(pendingClaim.profileId || readConfig("pendingClaimProfileId", ""));
+    const uuid = asString(pendingClaim.windowUuid || readConfig("pendingClaimWindowUuid", ""));
 
     if (profileId !== binding.id) {
         log("pending picked claim is for " + profileId + ", not " + binding.id);
@@ -556,8 +558,8 @@ function processWindow(window) {
 }
 
 function main() {
-    const config = readRuntimeConfig();
-    (config.bindings || []).forEach(registerBinding);
+    runtimeConfig = readRuntimeConfig();
+    (runtimeConfig.bindings || []).forEach(registerBinding);
 
     workspace.windowList().forEach(processWindow);
     workspace.windowAdded.connect(processWindow);

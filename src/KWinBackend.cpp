@@ -3,9 +3,13 @@
 #include <KConfig>
 #include <KConfigGroup>
 
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonParseError>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QStringList>
+#include <QThread>
 
 namespace {
 
@@ -105,6 +109,28 @@ bool writePendingClaim(const Profile &profile, const QString &uuid, QString *err
 {
     KConfig kwinConfig(QStringLiteral("kwinrc"), KConfig::NoGlobals);
     KConfigGroup scriptGroup(&kwinConfig, QStringLiteral("Script-dropman"));
+
+    const QString profilesJson = scriptGroup.readEntry(QStringLiteral("profilesJson"), QString());
+    if (!profilesJson.isEmpty()) {
+        QJsonParseError parseError;
+        QJsonDocument document = QJsonDocument::fromJson(profilesJson.toUtf8(), &parseError);
+        if (document.isObject()) {
+            QJsonObject root = document.object();
+            QJsonObject pendingClaim;
+            pendingClaim.insert(QStringLiteral("profileId"), profile.id);
+            pendingClaim.insert(QStringLiteral("windowUuid"), uuid);
+            root.insert(QStringLiteral("pendingClaim"), pendingClaim);
+            document.setObject(root);
+            scriptGroup.writeEntry(
+                QStringLiteral("profilesJson"),
+                QString::fromUtf8(document.toJson(QJsonDocument::Compact)));
+        } else if (errorMessage) {
+            *errorMessage = QStringLiteral("Could not parse mirrored profilesJson: %1")
+                                .arg(parseError.errorString());
+            return false;
+        }
+    }
+
     scriptGroup.writeEntry(QStringLiteral("pendingClaimProfileId"), profile.id);
     scriptGroup.writeEntry(QStringLiteral("pendingClaimWindowUuid"), uuid);
     scriptGroup.sync();
@@ -163,6 +189,9 @@ void KWinBackend::claimPickedWindow(Profile &profile)
 
     if (!reconfigureKWin()) {
         emit logMessage(QStringLiteral("Could not request KWin reconfigure for pending picked claim"));
+    } else {
+        emit logMessage(QStringLiteral("Requested KWin reconfigure for picked claim"));
+        QThread::msleep(750);
     }
 
     const QString id = actionId(QStringLiteral("ClaimPicked-"), profile);
