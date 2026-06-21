@@ -69,10 +69,11 @@ The configured edge controls hide direction, not forced shown geometry, in the
 default mode. Profile size percentages should only take effect later through an
 explicit mode such as `resize_to_profile`.
 
-Claiming a window does not hide it. The next profile toggle hides it if the
-window is already visible on the current desktop/activity. If the user has
-moved to another desktop/activity, that toggle first brings the claimed window
-to the current context, matching Yakuake-style invocation behavior.
+Claiming a window does not hide it. A profile toggle raises or shows the
+claimed window immediately unless that exact dropdown is already the active
+window; only then does the toggle hide it. If the user has moved to another
+desktop/activity, the toggle first brings the claimed window to the current
+context, matching Yakuake-style invocation behavior.
 
 If KWin reloads after a window was hidden, the in-memory claim is lost while
 the window may remain parked offscreen. A profile toggle may recover exactly

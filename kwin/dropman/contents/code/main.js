@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "geometry-aware-toggle-20260621";
+const SCRIPT_VERSION = "active-aware-toggle-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -344,8 +344,20 @@ function isClaimedWindow(window) {
     return claimed;
 }
 
+function isDropManControlWindow(window) {
+    const caption = lower(window && window.caption);
+    const resourceClass = lower(window && window.resourceClass);
+    const resourceName = lower(window && window.resourceName);
+    const desktopFile = lower(window && window.desktopFile);
+
+    return caption === "dropman"
+        || resourceClass === "dropman"
+        || resourceName === "dropman"
+        || desktopFile === "dropman";
+}
+
 function rememberFocusWindow(window) {
-    if (!window || isClaimedWindow(window)) {
+    if (!window || isClaimedWindow(window) || isDropManControlWindow(window)) {
         return;
     }
 
@@ -603,6 +615,14 @@ function toggleBinding(binding) {
             activateWindow(window, binding);
             log("moved visible " + binding.id
                 + " to current context shown=" + geometryText(binding.shownGeometry));
+            return;
+        }
+
+        if (workspace.activeWindow !== window) {
+            trySet(window, "frameGeometry", binding.shownGeometry);
+            activateWindow(window, binding);
+            log("raised visible " + binding.id
+                + " shown=" + geometryText(binding.shownGeometry));
             return;
         }
 
