@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "geometry-flash-20260621";
+const SCRIPT_VERSION = "claim-visible-no-flash-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -244,84 +244,6 @@ function geometryText(geometry) {
         + geometry.width + "x" + geometry.height;
 }
 
-function nudgeGeometry(geometry, binding) {
-    const nudged = {
-        x: geometry.x,
-        y: geometry.y,
-        width: geometry.width,
-        height: geometry.height
-    };
-    const amount = 18;
-    const edge = binding.edge || "top";
-
-    if (edge === "top") {
-        nudged.y -= amount;
-    } else if (edge === "bottom") {
-        nudged.y += amount;
-    } else if (edge === "left") {
-        nudged.x -= amount;
-    } else if (edge === "right") {
-        nudged.x += amount;
-    }
-
-    return nudged;
-}
-
-function runDelayed(delayMs, callback) {
-    try {
-        if (typeof setTimeout === "function") {
-            setTimeout(callback, delayMs);
-            return true;
-        }
-    } catch (error) {
-        log("setTimeout failed: " + error);
-    }
-
-    try {
-        if (typeof callLater === "function") {
-            callLater(callback);
-            return true;
-        }
-    } catch (error) {
-        log("callLater failed: " + error);
-    }
-
-    return false;
-}
-
-function flashWindow(window, binding, done) {
-    const original = currentFrameGeometry(window);
-    if (!original) {
-        done();
-        return;
-    }
-
-    // Temporary confirmation until DropMan has a proper visual overlay/effect.
-    const nudged = nudgeGeometry(original, binding);
-    const frames = [nudged, original, nudged, original];
-    let index = 0;
-
-    function step() {
-        if (index >= frames.length) {
-            trySet(window, "frameGeometry", original);
-            log("flashed " + binding.id + " twice using geometry");
-            done();
-            return;
-        }
-
-        trySet(window, "frameGeometry", frames[index]);
-        index += 1;
-
-        if (!runDelayed(70, step)) {
-            trySet(window, "frameGeometry", original);
-            log("flash unavailable for " + binding.id + ": no timer API exposed");
-            done();
-        }
-    }
-
-    step();
-}
-
 function windowIdentityText(window) {
     const values = [];
     ["uuid", "internalId", "windowId", "id"].forEach((key) => {
@@ -514,7 +436,7 @@ function finishClaimWindow(binding, window) {
 
 function claimWindow(binding, window) {
     prepareWindow(window, binding);
-    flashWindow(window, binding, () => finishClaimWindow(binding, window));
+    finishClaimWindow(binding, window);
 }
 
 function findWindow(binding) {
@@ -624,15 +546,6 @@ function pickedWindowForBinding(binding) {
     };
 }
 
-function flashPickedWindow(binding) {
-    const picked = pickedWindowForBinding(binding);
-    if (!picked) {
-        return;
-    }
-
-    flashWindow(picked.window, binding);
-}
-
 function claimPickedWindow(binding) {
     const picked = pickedWindowForBinding(binding);
     if (!picked) {
@@ -708,13 +621,6 @@ function registerBinding(config) {
         "DropMan: Claim picked " + binding.name,
         "",
         () => claimPickedWindow(binding)
-    );
-
-    registerShortcut(
-        "DropMan-FlashPicked-" + binding.id,
-        "DropMan: Flash picked " + binding.name,
-        "",
-        () => flashPickedWindow(binding)
     );
 
     registerShortcut(

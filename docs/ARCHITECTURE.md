@@ -55,8 +55,7 @@ Default geometry mode is `preserve_geometry`:
 
 - claim captures the active window's current `frameGeometry` as
   `shownGeometry`;
-- claim leaves the window visible after a temporary geometry-nudge
-  confirmation;
+- claim leaves the window visible;
 - hide translates that exact rectangle fully offscreen in the configured edge
   direction;
 - show restores `shownGeometry` exactly;
