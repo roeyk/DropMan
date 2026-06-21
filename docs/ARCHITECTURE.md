@@ -81,6 +81,11 @@ one matching offscreen window parked on that profile's configured edge, then
 restore it into the current context. This is intentionally narrow to avoid
 broad class-based mutation.
 
+The KWin component also persists runtime claim state in its script config as
+`claimsJson`: claimed window UUID, shown geometry, and visible/hidden state per
+profile. On script load it first tries to reattach by exact UUID. Parked-window
+recovery remains a fallback for older or incomplete state.
+
 When a dropdown is hidden, DropMan restores focus to the last active window
 that was not one of DropMan's claimed dropdown windows, when KWin exposes the
 needed focus-change signal.
