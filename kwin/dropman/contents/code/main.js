@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "claimed-geometry-restore-20260621";
+const SCRIPT_VERSION = "restore-firefox-slide-hide-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -133,11 +133,20 @@ function isMinimized(window) {
     return propertyBool(window, "minimized");
 }
 
-function applyClaimedGeometry(window, geometry) {
+function clearRestoreState(window) {
     trySet(window, "minimized", false);
     trySet(window, "maximizeHorizontal", 0);
     trySet(window, "maximizeVertical", 0);
     trySet(window, "fullscreen", false);
+}
+
+function applyClaimedGeometry(window, geometry) {
+    trySet(window, "minimized", false);
+    return trySet(window, "frameGeometry", geometry);
+}
+
+function applyRecoveredClaimedGeometry(window, geometry) {
+    clearRestoreState(window);
     return trySet(window, "frameGeometry", geometry);
 }
 
@@ -642,7 +651,7 @@ function parkExternallyMinimizedWindow(binding, window) {
     }
 
     const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
-    applyClaimedGeometry(window, hidden);
+    applyRecoveredClaimedGeometry(window, hidden);
     binding.visible = false;
     log("parked externally minimized " + binding.id
         + " shown=" + geometryText(binding.shownGeometry)
@@ -663,7 +672,7 @@ function showRetractedWindowFromActivation(binding, window) {
     }
 
     moveWindowToCurrentContext(window, binding);
-    applyClaimedGeometry(window, binding.shownGeometry);
+    applyRecoveredClaimedGeometry(window, binding.shownGeometry);
     binding.visible = true;
     activateWindow(window, binding);
     log("showed retracted " + binding.id
@@ -892,8 +901,8 @@ function toggleBinding(binding) {
         if (!windowOnCurrentContext(window)) {
             moveWindowToCurrentContext(window, binding);
             const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
-            applyClaimedGeometry(window, hidden);
-            applyClaimedGeometry(window, binding.shownGeometry);
+            applyRecoveredClaimedGeometry(window, hidden);
+            applyRecoveredClaimedGeometry(window, binding.shownGeometry);
             activateWindow(window, binding);
             binding.visible = true;
             log("summoned visible " + binding.id
