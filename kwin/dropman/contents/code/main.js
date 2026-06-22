@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "taskbar-activate-retracted-20260621";
+const SCRIPT_VERSION = "claimed-geometry-restore-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -131,6 +131,14 @@ function trySet(window, property, value) {
 
 function isMinimized(window) {
     return propertyBool(window, "minimized");
+}
+
+function applyClaimedGeometry(window, geometry) {
+    trySet(window, "minimized", false);
+    trySet(window, "maximizeHorizontal", 0);
+    trySet(window, "maximizeVertical", 0);
+    trySet(window, "fullscreen", false);
+    return trySet(window, "frameGeometry", geometry);
 }
 
 function tryCall(object, method, argument) {
@@ -634,8 +642,7 @@ function parkExternallyMinimizedWindow(binding, window) {
     }
 
     const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
-    trySet(window, "minimized", false);
-    trySet(window, "frameGeometry", hidden);
+    applyClaimedGeometry(window, hidden);
     binding.visible = false;
     log("parked externally minimized " + binding.id
         + " shown=" + geometryText(binding.shownGeometry)
@@ -656,8 +663,7 @@ function showRetractedWindowFromActivation(binding, window) {
     }
 
     moveWindowToCurrentContext(window, binding);
-    trySet(window, "minimized", false);
-    trySet(window, "frameGeometry", binding.shownGeometry);
+    applyClaimedGeometry(window, binding.shownGeometry);
     binding.visible = true;
     activateWindow(window, binding);
     log("showed retracted " + binding.id
@@ -886,8 +892,8 @@ function toggleBinding(binding) {
         if (!windowOnCurrentContext(window)) {
             moveWindowToCurrentContext(window, binding);
             const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
-            trySet(window, "frameGeometry", hidden);
-            trySet(window, "frameGeometry", binding.shownGeometry);
+            applyClaimedGeometry(window, hidden);
+            applyClaimedGeometry(window, binding.shownGeometry);
             activateWindow(window, binding);
             binding.visible = true;
             log("summoned visible " + binding.id
@@ -898,8 +904,8 @@ function toggleBinding(binding) {
 
         if (workspace.activeWindow !== window) {
             const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
-            trySet(window, "frameGeometry", hidden);
-            trySet(window, "frameGeometry", binding.shownGeometry);
+            applyClaimedGeometry(window, hidden);
+            applyClaimedGeometry(window, binding.shownGeometry);
             activateWindow(window, binding);
             binding.visible = true;
             log("summoned visible " + binding.id
@@ -914,7 +920,7 @@ function toggleBinding(binding) {
         }
 
         const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
-        trySet(window, "frameGeometry", hidden);
+        applyClaimedGeometry(window, hidden);
         binding.visible = false;
         restoreFocusAfterHide(window, lastNonDropdownWindow, binding);
         log("hid " + binding.id
@@ -924,9 +930,8 @@ function toggleBinding(binding) {
         moveWindowToCurrentContext(window, binding);
         if (liveMinimized) {
             const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
-            trySet(window, "minimized", false);
-            trySet(window, "frameGeometry", hidden);
-            trySet(window, "frameGeometry", binding.shownGeometry);
+            applyClaimedGeometry(window, hidden);
+            applyClaimedGeometry(window, binding.shownGeometry);
             activateWindow(window, binding);
             binding.visible = true;
             log("showed minimized " + binding.id
@@ -934,7 +939,7 @@ function toggleBinding(binding) {
                 + " shown=" + geometryText(binding.shownGeometry));
             return;
         }
-        trySet(window, "frameGeometry", binding.shownGeometry);
+        applyClaimedGeometry(window, binding.shownGeometry);
         activateWindow(window, binding);
         binding.visible = true;
         log("showed " + binding.id
@@ -1032,7 +1037,7 @@ function releaseBinding(binding) {
 
     if (!binding.visible && binding.shownGeometry) {
         moveWindowToCurrentContext(binding.window, binding);
-        trySet(binding.window, "frameGeometry", binding.shownGeometry);
+        applyClaimedGeometry(binding.window, binding.shownGeometry);
         activateWindow(binding.window, binding);
     }
 
@@ -1137,7 +1142,7 @@ function main() {
             bindings.forEach((binding) => {
                 if (binding.window && !binding.visible && binding.shownGeometry) {
                     const hidden = hiddenGeometry(binding.shownGeometry, binding, binding.window);
-                    trySet(binding.window, "frameGeometry", hidden);
+                    applyClaimedGeometry(binding.window, hidden);
                     log("reparked hidden " + binding.id
                         + " shown=" + geometryText(binding.shownGeometry)
                         + " hidden=" + geometryText(hidden));
