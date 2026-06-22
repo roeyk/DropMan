@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "covered-dropdown-summon-20260621";
+const SCRIPT_VERSION = "dropdown-focus-stack-20260621";
 
 const STATE = {
     UNCLAIMED: "unclaimed",
@@ -79,6 +79,8 @@ const bindings = new Map();
 let runtimeConfig = null;
 let appPersistedClaims = {};
 let lastNonDropdownWindow = null;
+let lastActiveDropdownWindow = null;
+let previousActiveDropdownWindow = null;
 
 function log(message) {
     console.info(LOG_PREFIX + message);
@@ -530,6 +532,19 @@ function rememberFocusWindow(window) {
                     showRetractedWindowFromActivation(binding, window);
                 }
             });
+
+            const binding = bindingForWindow(window);
+            const geometry = currentFrameGeometry(window);
+            if (binding
+                && binding.visible
+                && !isMinimized(window)
+                && !isParkedOffscreen(geometry, binding, window)) {
+                if (lastActiveDropdownWindow !== window) {
+                    previousActiveDropdownWindow = lastActiveDropdownWindow;
+                    lastActiveDropdownWindow = window;
+                }
+                log("remembered dropdown focus window: " + binding.id);
+            }
         }
         return;
     }
@@ -682,6 +697,35 @@ function restoreFocusAfterHide(hiddenWindow, previousWindow, binding) {
         + " activated=" + activated
         + " raised=" + raised
         + " activeWindow=" + asString(workspace.activeWindow && workspace.activeWindow.caption));
+}
+
+function restorePreviousDropdownAfterHide(hiddenWindow, binding) {
+    const candidates = [previousActiveDropdownWindow, lastActiveDropdownWindow];
+    for (let i = 0; i < candidates.length; ++i) {
+        const candidate = candidates[i];
+        if (!candidate || candidate === hiddenWindow) {
+            continue;
+        }
+
+        const candidateBinding = bindingForWindow(candidate);
+        if (!candidateBinding || !candidateBinding.visible) {
+            continue;
+        }
+
+        const geometry = currentFrameGeometry(candidate);
+        if (!geometry
+            || isMinimized(candidate)
+            || isParkedOffscreen(geometry, candidateBinding, candidate)) {
+            continue;
+        }
+
+        activateWindow(candidate, candidateBinding);
+        previousActiveDropdownWindow = null;
+        lastActiveDropdownWindow = candidate;
+        log("restored dropdown focus after hiding " + binding.id
+            + " to " + candidateBinding.id);
+        return;
+    }
 }
 
 function parkExternallyMinimizedWindow(binding, window) {
@@ -983,6 +1027,7 @@ function toggleBinding(binding) {
         setBindingVisible(binding, false, "profile shortcut hide");
         binding.suppressActivationUntil = nowMilliseconds() + 600;
         applyClaimedGeometry(window, hidden);
+        restorePreviousDropdownAfterHide(window, binding);
         log("hid " + binding.id
             + " shown=" + geometryText(binding.shownGeometry)
             + " hidden=" + geometryText(hidden));
