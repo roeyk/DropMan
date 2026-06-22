@@ -73,9 +73,44 @@ function geometryText(geometry) {
         + geometry.width + "x" + geometry.height;
 }
 
+function outputGeometry(window) {
+    if (window && window.output && window.output.geometry) {
+        return window.output.geometry;
+    }
+
+    return null;
+}
+
+function parsedGeometry(value) {
+    if (!value
+        || typeof value.x !== "number"
+        || typeof value.y !== "number"
+        || typeof value.width !== "number"
+        || typeof value.height !== "number") {
+        return null;
+    }
+
+    return {
+        x: value.x,
+        y: value.y,
+        width: value.width,
+        height: value.height
+    };
+}
+
+function geometriesEqual(a, b) {
+    const tolerance = 3;
+    return a && b
+        && Math.abs(a.x - b.x) <= tolerance
+        && Math.abs(a.y - b.y) <= tolerance
+        && Math.abs(a.width - b.width) <= tolerance
+        && Math.abs(a.height - b.height) <= tolerance;
+}
+
 class DropManSlideEffect {
     constructor() {
         this.claimsByUuid = {};
+        this.claims = [];
         this.showDuration = 420;
         this.hideDuration = 420;
 
@@ -92,6 +127,7 @@ class DropManSlideEffect {
 
     loadConfig() {
         this.claimsByUuid = {};
+        this.claims = [];
         const configuredShowDuration = Number(effect.readConfig("ShowDuration", 420));
         const configuredHideDuration = Number(effect.readConfig("HideDuration", 420));
         this.showDuration = Math.max(animationTime(configuredShowDuration), 260);
@@ -108,15 +144,26 @@ class DropManSlideEffect {
             const parsed = JSON.parse(claimsJson);
             const claims = (parsed && parsed.claims) || {};
             Object.keys(claims).forEach((profileId) => {
-                const uuid = normalizedId(claims[profileId].windowUuid);
+                const claim = claims[profileId] || {};
+                const uuid = normalizedId(claim.windowUuid);
+                const shownGeometry = parsedGeometry(claim.shownGeometry);
                 if (uuid) {
                     this.claimsByUuid[uuid] = {
                         profileId: profileId
                     };
                 }
+                if (shownGeometry) {
+                    this.claims.push({
+                        profileId: profileId,
+                        uuid: uuid,
+                        edge: asString(claim.edge || ""),
+                        shownGeometry: shownGeometry
+                    });
+                }
             });
             log("loaded " + Object.keys(this.claimsByUuid).length
-                + " tracked claim UUIDs; showDuration=" + this.showDuration
+                + " tracked claim UUIDs and " + this.claims.length
+                + " claim geometries; showDuration=" + this.showDuration
                 + " hideDuration=" + this.hideDuration);
         } catch (error) {
             log("could not parse claimsJson: " + error);
@@ -127,6 +174,65 @@ class DropManSlideEffect {
         const uuid = windowUuid(window);
         return propertyBool(window, "dropmanDropdown")
             || (uuid && this.claimsByUuid[uuid] !== undefined);
+    }
+
+    hiddenGeometriesForClaim(claim, window) {
+        const shown = claim.shownGeometry;
+        const screen = outputGeometry(window);
+        const edges = claim.edge
+            ? [claim.edge]
+            : ["top", "right", "bottom", "left"];
+        const geometries = [];
+
+        for (let i = 0; i < edges.length; ++i) {
+            const edge = edges[i];
+            const hidden = {
+                x: shown.x,
+                y: shown.y,
+                width: shown.width,
+                height: shown.height
+            };
+
+            if (edge === "top") {
+                hidden.y = screen ? screen.y - shown.height : shown.y - shown.height;
+            } else if (edge === "bottom") {
+                hidden.y = screen ? screen.y + screen.height : shown.y + shown.height;
+            } else if (edge === "left") {
+                hidden.x = screen ? screen.x - shown.width : shown.x - shown.width;
+            } else if (edge === "right") {
+                hidden.x = screen ? screen.x + screen.width : shown.x + shown.width;
+            } else {
+                continue;
+            }
+
+            geometries.push(hidden);
+        }
+
+        return geometries;
+    }
+
+    matchingClaimTransition(window, oldGeometry, newGeometry) {
+        for (let i = 0; i < this.claims.length; ++i) {
+            const claim = this.claims[i];
+            const hiddenGeometries = this.hiddenGeometriesForClaim(claim, window);
+            for (let j = 0; j < hiddenGeometries.length; ++j) {
+                const hidden = hiddenGeometries[j];
+                const showing = geometriesEqual(oldGeometry, hidden)
+                    && geometriesEqual(newGeometry, claim.shownGeometry);
+                const hiding = geometriesEqual(oldGeometry, claim.shownGeometry)
+                    && geometriesEqual(newGeometry, hidden);
+
+                if (showing || hiding) {
+                    return {
+                        profileId: claim.profileId,
+                        showing: showing,
+                        hiding: hiding
+                    };
+                }
+            }
+        }
+
+        return null;
     }
 
     isLargeEdgeMove(oldGeometry, newGeometry) {
@@ -179,8 +285,9 @@ class DropManSlideEffect {
 
         const newGeometry = window.geometry;
         const tracked = this.isTracked(window);
+        const explicitTransition = this.matchingClaimTransition(window, oldGeometry, newGeometry);
         const largeEdgeMove = this.isLargeEdgeMove(oldGeometry, newGeometry);
-        if (!tracked && !largeEdgeMove) {
+        if (!tracked && !explicitTransition && !largeEdgeMove) {
             return;
         }
 
@@ -231,6 +338,7 @@ class DropManSlideEffect {
             + " duration=" + duration
             + " hiding=" + hiding
             + " tracked=" + tracked
+            + " explicit=" + (explicitTransition ? explicitTransition.profileId : false)
             + " largeEdgeMove=" + largeEdgeMove
             + " class=" + propertyText(window, "resourceClass")
             + " name=" + propertyText(window, "resourceName")

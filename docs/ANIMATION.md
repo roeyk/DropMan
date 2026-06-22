@@ -25,17 +25,19 @@ An experimental scripted effect now lives in:
 kwin/effects/dropman_slide
 ```
 
-The effect first tries to track exact app-picked UUIDs. The Qt app mirrors
-picked claims into several KWin effect config groups, but Geshem showed that
-scripted effects do not necessarily expose those groups through
-`effect.readConfig()`. The KWin shortcut script also tags claimed window
-objects with DropMan metadata, and the effect treats that as the preferred
-runtime handoff when available.
+The effect first tries to track exact app-picked claims. The Qt app mirrors
+picked claims into several KWin effect config groups. Each mirrored claim now
+contains the profile id, window UUID, edge, and shown geometry. Because Geshem
+showed that scripted effects do not reliably expose the same window UUID/class
+properties as the shortcut script, the effect can also recognize exact
+`shownGeometry` to computed hidden-geometry transitions from that claim data.
+The KWin shortcut script also tags claimed window objects with DropMan metadata,
+and the effect treats that as another preferred runtime handoff when available.
 
-While that protocol is being validated, the effect also has an experimental
+While that protocol is being validated, the effect still has an experimental
 fallback that animates large edge-to-edge geometry moves. This is intentionally
-for testing only; the final runtime should use an exact claim handoff, not
-broad movement heuristics.
+for testing only; the final runtime should use the explicit claim geometry
+handoff, not broad movement heuristics.
 
 ## Target Runtime
 
@@ -102,7 +104,8 @@ Open questions for Geshem:
    - claim a window through the app so the KWin script tags the claimed
      window;
    - toggle the window and watch for `dropman-slide: animated ...` logs,
-     especially `tracked=true` or `largeEdgeMove=true`.
+     especially `explicit=<profileId>` or `tracked=true`. `largeEdgeMove=true`
+     means the broad fallback is still doing the work.
    The scripted effect currently uses explicit `Effect.Translation` animation:
    when the KWin script moves the real window frame, the effect starts drawing
    it at the previous visual offset and animates that offset back to zero.

@@ -257,6 +257,7 @@ bool writePendingClaim(const Profile &profile,
     QJsonObject claim;
     claim.insert(QStringLiteral("windowUuid"), uuid);
     claim.insert(QStringLiteral("visible"), true);
+    claim.insert(QStringLiteral("edge"), profile.edge);
 
     const QJsonObject geometry = pickedWindowGeometry(pickerOutput);
     if (!geometry.isEmpty()) {
