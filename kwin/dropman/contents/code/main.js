@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "dropdown-focus-stack-20260621";
+const SCRIPT_VERSION = "explicit-keep-above-20260621";
 
 const STATE = {
     UNCLAIMED: "unclaimed",
@@ -556,13 +556,11 @@ function rememberFocusWindow(window) {
 function prepareWindow(window, binding) {
     const hints = binding.windowHints || {};
 
-    trySet(window, "keepAbove", true);
-
     if (hints.noBorder === true) {
         trySet(window, "noBorder", true);
     }
-    if (hints.keepAbove === false) {
-        trySet(window, "keepAbove", false);
+    if (hints.keepAbove === true) {
+        trySet(window, "keepAbove", true);
     }
     if (hints.skipTaskbar === true) {
         trySet(window, "skipTaskbar", true);
