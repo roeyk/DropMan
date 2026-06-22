@@ -103,6 +103,9 @@ Open questions for Geshem:
      window;
    - toggle the window and watch for `dropman-slide: animated ...` logs,
      especially `tracked=true` or `largeEdgeMove=true`.
+   The scripted effect currently uses explicit `Effect.Position` animation:
+   show uses a slower `OutCubic` curve, while hide uses a faster `InCubic`
+   curve to better match Yakuake's retract feel.
 4. If scripted effects cannot provide enough control, move to a native KWin
    effect/runtime component.
 5. Add a config flag such as `animation.enabled`, defaulting to false until the

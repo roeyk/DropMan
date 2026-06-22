@@ -76,7 +76,8 @@ function geometryText(geometry) {
 class DropManSlideEffect {
     constructor() {
         this.claimsByUuid = {};
-        this.duration = 420;
+        this.showDuration = 420;
+        this.hideDuration = 260;
 
         effect.configChanged.connect(this.loadConfig.bind(this));
         effects.windowAdded.connect(this.manage.bind(this));
@@ -91,13 +92,15 @@ class DropManSlideEffect {
 
     loadConfig() {
         this.claimsByUuid = {};
-        const configuredDuration = Number(effect.readConfig("Duration", 420));
-        const scaledDuration = animationTime(configuredDuration);
-        this.duration = Math.max(scaledDuration, 260);
+        const configuredShowDuration = Number(effect.readConfig("ShowDuration", 420));
+        const configuredHideDuration = Number(effect.readConfig("HideDuration", 260));
+        this.showDuration = Math.max(animationTime(configuredShowDuration), 260);
+        this.hideDuration = Math.max(animationTime(configuredHideDuration), 180);
 
         const claimsJson = effect.readConfig("claimsJson", "");
         if (!claimsJson) {
-            log("no claimsJson in Effect-dropman_slide config; duration=" + this.duration);
+            log("no claimsJson in Effect-dropman_slide config; showDuration="
+                + this.showDuration + " hideDuration=" + this.hideDuration);
             return;
         }
 
@@ -113,7 +116,8 @@ class DropManSlideEffect {
                 }
             });
             log("loaded " + Object.keys(this.claimsByUuid).length
-                + " tracked claim UUIDs; duration=" + this.duration);
+                + " tracked claim UUIDs; showDuration=" + this.showDuration
+                + " hideDuration=" + this.hideDuration);
         } catch (error) {
             log("could not parse claimsJson: " + error);
         }
@@ -136,6 +140,11 @@ class DropManSlideEffect {
         const thresholdY = Math.max(180, Math.min(oldGeometry.height, newGeometry.height) * 0.35);
 
         return deltaX >= thresholdX || deltaY >= thresholdY;
+    }
+
+    isMovingFartherOffscreen(oldGeometry, newGeometry) {
+        return Math.abs(newGeometry.x) > Math.abs(oldGeometry.x)
+            || Math.abs(newGeometry.y) > Math.abs(oldGeometry.y);
     }
 
     manage(window) {
@@ -194,20 +203,24 @@ class DropManSlideEffect {
             delete window.dropmanSlideAnimation;
         }
 
+        const hiding = this.isMovingFartherOffscreen(oldGeometry, newGeometry);
+        const duration = hiding ? this.hideDuration : this.showDuration;
+        const curve = hiding ? QEasingCurve.InCubic : QEasingCurve.OutCubic;
+
         window.dropmanSlideAnimation = animate({
             window: window,
-            duration: this.duration,
+            duration: duration,
             animations: [{
-                type: Effect.Translation,
+                type: Effect.Position,
                 from: {
-                    value1: deltaX,
-                    value2: deltaY
+                    value1: oldGeometry.x + oldGeometry.width / 2,
+                    value2: oldGeometry.y + oldGeometry.height / 2
                 },
                 to: {
-                    value1: 0,
-                    value2: 0
+                    value1: newGeometry.x + newGeometry.width / 2,
+                    value2: newGeometry.y + newGeometry.height / 2
                 },
-                curve: QEasingCurve.OutCubic
+                curve: curve
             }]
         });
 
@@ -215,7 +228,8 @@ class DropManSlideEffect {
             + " from=" + geometryText(oldGeometry)
             + " to=" + geometryText(newGeometry)
             + " delta=" + deltaX + "," + deltaY
-            + " duration=" + this.duration
+            + " duration=" + duration
+            + " hiding=" + hiding
             + " tracked=" + tracked
             + " largeEdgeMove=" + largeEdgeMove);
     }
