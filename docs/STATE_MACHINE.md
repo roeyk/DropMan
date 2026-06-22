@@ -62,8 +62,8 @@ button.
 | --- | --- | --- | --- |
 | `unclaimed` | `claim(window)` | Validate match rules, reject DropMan control windows, capture `shownGeometry`, persist UUID/geometry, tag/window-watch claim, leave window visible. | `visible` |
 | `unclaimed` | `profile_shortcut` | Try safe recovery by persisted UUID, then parked geometry, then sole matching candidate. If none exists, log "no matching window" and do nothing. | `hidden`, `visible`, or `unclaimed` |
-| `visible` | `profile_shortcut` | Update `shownGeometry` from live geometry, move to hidden edge geometry, restore previous non-dropdown focus. | `hidden` |
-| `visible` | `taskbar_minimize` | Treat as dropdown hide: prevent ordinary minimize from becoming the durable state, park at hidden edge geometry, restore previous non-dropdown focus if available. | `hidden` |
+| `visible` | `profile_shortcut` | Update `shownGeometry` from live geometry and move to hidden edge geometry. Focus restoration is deferred until an animation-completion path exists. | `hidden` |
+| `visible` | `taskbar_minimize` | Treat as dropdown hide: prevent ordinary minimize from becoming the durable state and park at hidden edge geometry. | `hidden` |
 | `visible` | `taskbar_activate` | Claimed window is already visible; raise/activate only. | `visible` |
 | `visible` | `desktop_changed` | Do nothing until the next summon/hide event. A visible claimed window may remain on its current desktop until requested. | `visible` |
 | `visible` | `release` | Detach claim, clear DropMan metadata if possible, keep the window visible. | `unclaimed` |
@@ -85,7 +85,7 @@ button.
 | Transition | Geometry | Focus | Persistence | Animation |
 | --- | --- | --- | --- | --- |
 | `claim -> visible` | Capture current frame as `shownGeometry`; do not move or resize. | No focus change. | Write UUID, edge, `shownGeometry`, and state. | Optional confirmation notice only. |
-| `visible -> hidden` | Move from current/shown geometry to edge-hidden geometry. | Restore previous non-dropdown window. | Persist state as hidden. | Slide out. |
+| `visible -> hidden` | Move from current/shown geometry to edge-hidden geometry. | Defer focus restoration until animation completion; do not raise another window during slide-out. | Persist state as hidden. | Slide out. |
 | `hidden -> visible` | Move to current desktop/activity, then restore `shownGeometry`. | Activate claimed window. | Persist state as visible. | Slide in. |
 | `visible -> visible` raise | No geometry change unless current desktop/activity requires summon semantics. | Activate claimed window. | No state change. | No animation. |
 | `hidden -> unclaimed` release | Restore `shownGeometry` first, then detach. | Activate released window. | Remove persisted claim. | Usually no animation. |
@@ -101,7 +101,9 @@ button.
   the configured edge.
 - Taskbar minimize on a claimed visible window means "hide this dropdown."
 - Taskbar activation on a claimed hidden window means "show this dropdown."
-- Focus restore happens only after a transition to `hidden`.
+- Focus restore must happen only after the hide animation has completed. Until
+  the native/effect completion path exists, the script must not synchronously
+  raise another window during slide-out.
 - Animation is a side effect of `visible <-> hidden` geometry transitions; it
   must not be used to infer ownership.
 

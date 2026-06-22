@@ -16,8 +16,10 @@ The KWin script remains responsible for:
 - hidden edge geometry;
 - focus restoration.
 
-Show and hide are currently instant geometry changes. That keeps the prototype
-deterministic while the binding model is still hardening.
+Show and hide are geometry changes owned by the script. A separate KWin effect
+may animate those moves. The shortcut script must not activate another window
+while a hide animation is in progress, because doing so raises the next window
+over the sliding dropdown and makes the retract look instantaneous.
 
 An experimental scripted effect now lives in:
 
@@ -60,7 +62,9 @@ The script or app should provide the effect with:
 - operation: show or hide.
 
 The effect should then animate the transition and report completion, at which
-point the script can finalize focus and visible/hidden state.
+point a native runtime component can finalize focus and visible/hidden state.
+Until that completion path exists, focus restoration after hide is intentionally
+deferred rather than performed synchronously by the shortcut script.
 
 ## Yakuake Reference
 

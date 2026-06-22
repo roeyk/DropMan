@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "restore-focus-without-raise-20260622";
+const SCRIPT_VERSION = "defer-focus-until-after-hide-20260622";
 
 const STATE = {
     UNCLAIMED: "unclaimed",
@@ -1105,7 +1105,6 @@ function toggleBinding(binding) {
         setBindingVisible(binding, false, "profile shortcut hide");
         binding.suppressActivationUntil = nowMilliseconds() + 600;
         applyClaimedGeometry(window, hidden);
-        restorePreviousDropdownAfterHide(window, binding);
         log("hid " + binding.id
             + " shown=" + geometryText(binding.shownGeometry)
             + " hidden=" + geometryText(hidden));
