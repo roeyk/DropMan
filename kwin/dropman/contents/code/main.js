@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "raw-normal-hide-20260621";
+const SCRIPT_VERSION = "focus-before-hide-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -928,9 +928,9 @@ function toggleBinding(binding) {
         }
 
         const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
-        applyClaimedGeometry(window, hidden);
         binding.visible = false;
         restoreFocusAfterHide(window, lastNonDropdownWindow, binding);
+        applyClaimedGeometry(window, hidden);
         log("hid " + binding.id
             + " shown=" + geometryText(binding.shownGeometry)
             + " hidden=" + geometryText(hidden));
