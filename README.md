@@ -45,7 +45,9 @@ activates its preserved geometry.
 ```text
 src/                          Qt6 app and backend boundary
 kwin/dropman/                 KWin prototype package
+kwin/effects/dropman_slide/    experimental KWin scripted effect
 scripts/install-kwin-script.sh local prototype install helper
+scripts/install-kwin-effect.sh local effect install helper
 docs/                         design notes and roadmap
 ```
 
@@ -98,6 +100,32 @@ dropman: showed ... shown=...
 If logs still say `visible=...`, KWin is running an older installed copy of
 the script. Re-run the install helper, reconfigure KWin, and log out/in if KWin
 keeps the stale script in memory.
+
+## KWin Slide Effect
+
+DropMan also includes an experimental scripted KWin effect:
+
+```bash
+./scripts/install-kwin-effect.sh
+```
+
+Then enable **DropMan Slide** in:
+
+```text
+System Settings -> Window Management -> Desktop Effects
+```
+
+The effect reads exact app-picked claim UUIDs from KWin's
+`Effect-dropman_slide` config group and animates geometry changes only for
+those windows. It is intentionally narrow: if a window was not explicitly
+claimed by UUID through the DropMan app, the effect should not animate it.
+
+Expected effect logs look like:
+
+```text
+dropman-slide: loaded ... tracked claim UUIDs
+dropman-slide: animated ... from=... to=...
+```
 
 ## Configure Bindings
 

@@ -19,10 +19,26 @@ The KWin script remains responsible for:
 Show and hide are currently instant geometry changes. That keeps the prototype
 deterministic while the binding model is still hardening.
 
+An experimental scripted effect now lives in:
+
+```text
+kwin/effects/dropman_slide
+```
+
+The effect reads `claimsJson` from KWin's `Effect-dropman_slide` config group,
+tracks exact app-picked UUIDs, and animates frame-geometry changes for only
+those windows. The Qt app mirrors picked claims into both `Script-dropman` and
+`Effect-dropman_slide`; keyboard-only claims are still not durable because the
+shortcut script cannot write config.
+
 ## Target Runtime
 
 Smooth animation should live in a dedicated KWin effect/runtime component, not
-in the shortcut script. The script should provide the effect with:
+in the shortcut script. The current scripted effect is a validation step. A
+full native effect may still be needed for top-layer notices, richer drawing,
+and explicit show/hide operation handshakes.
+
+The script or app should provide the effect with:
 
 - profile id;
 - claimed window UUID;
@@ -74,10 +90,13 @@ Open questions for Geshem:
 
 1. Keep the script's instant geometry path as fallback.
 2. Add a narrow animation backend interface around show/hide.
-3. Prototype a KDE helper call that requests KWin slide animation for one
-   claimed window, using Yakuake's `KWindowEffects::slideWindow()` /
-   `_KDE_SLIDE` approach as the reference.
-4. If foreign-window animation is not supported, move to a small KWin
+3. Validate the scripted `dropman_slide` effect on Geshem:
+   - install it with `scripts/install-kwin-effect.sh`;
+   - enable it in Desktop Effects;
+   - claim a window through the app so `Effect-dropman_slide` receives the
+     UUID;
+   - toggle the window and watch for `dropman-slide: animated ...` logs.
+4. If scripted effects cannot provide enough control, move to a native KWin
    effect/runtime component.
 5. Add a config flag such as `animation.enabled`, defaulting to false until the
    effect is proven on Geshem.

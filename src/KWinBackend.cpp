@@ -199,6 +199,7 @@ bool writePendingClaim(const Profile &profile,
 {
     KConfig kwinConfig(QStringLiteral("kwinrc"), KConfig::NoGlobals);
     KConfigGroup scriptGroup(&kwinConfig, QStringLiteral("Script-dropman"));
+    KConfigGroup effectGroup(&kwinConfig, QStringLiteral("Effect-dropman_slide"));
 
     const QString profilesJson = scriptGroup.readEntry(QStringLiteral("profilesJson"), QString());
     if (!profilesJson.isEmpty()) {
@@ -252,10 +253,14 @@ bool writePendingClaim(const Profile &profile,
     scriptGroup.writeEntry(
         QStringLiteral("claimsJson"),
         QString::fromUtf8(QJsonDocument(claimsRoot).toJson(QJsonDocument::Compact)));
+    effectGroup.writeEntry(
+        QStringLiteral("claimsJson"),
+        QString::fromUtf8(QJsonDocument(claimsRoot).toJson(QJsonDocument::Compact)));
 
     scriptGroup.writeEntry(QStringLiteral("pendingClaimProfileId"), profile.id);
     scriptGroup.writeEntry(QStringLiteral("pendingClaimWindowUuid"), uuid);
     scriptGroup.sync();
+    effectGroup.sync();
 
     if (!kwinConfig.sync()) {
         if (errorMessage) {
@@ -271,6 +276,7 @@ bool removePersistedClaim(const Profile &profile, QString *errorMessage)
 {
     KConfig kwinConfig(QStringLiteral("kwinrc"), KConfig::NoGlobals);
     KConfigGroup scriptGroup(&kwinConfig, QStringLiteral("Script-dropman"));
+    KConfigGroup effectGroup(&kwinConfig, QStringLiteral("Effect-dropman_slide"));
 
     const QString claimsJson = scriptGroup.readEntry(QStringLiteral("claimsJson"), QString());
     if (claimsJson.isEmpty()) {
@@ -295,7 +301,11 @@ bool removePersistedClaim(const Profile &profile, QString *errorMessage)
     scriptGroup.writeEntry(
         QStringLiteral("claimsJson"),
         QString::fromUtf8(QJsonDocument(root).toJson(QJsonDocument::Compact)));
+    effectGroup.writeEntry(
+        QStringLiteral("claimsJson"),
+        QString::fromUtf8(QJsonDocument(root).toJson(QJsonDocument::Compact)));
     scriptGroup.sync();
+    effectGroup.sync();
 
     if (!kwinConfig.sync()) {
         if (errorMessage) {

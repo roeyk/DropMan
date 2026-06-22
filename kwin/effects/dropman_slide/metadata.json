@@ -1,0 +1,19 @@
+{
+    "KPackageStructure": "KWin/Effect",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "DropMan contributors"
+            }
+        ],
+        "Category": "Window Management",
+        "Description": "Experimental compositor-side slide animation for DropMan claimed windows",
+        "EnabledByDefault": false,
+        "Icon": "preferences-system-windows-effect",
+        "Id": "dropman_slide",
+        "License": "MIT",
+        "Name": "DropMan Slide"
+    },
+    "X-KDE-Ordering": 85,
+    "X-Plasma-API": "javascript"
+}
