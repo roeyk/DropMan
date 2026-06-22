@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "clear-sticky-keep-above-20260621";
+const SCRIPT_VERSION = "ignore-dialog-candidates-20260621";
 
 const STATE = {
     UNCLAIMED: "unclaimed",
@@ -283,9 +283,32 @@ function excludesField(window, key, expected) {
     return windowText(window, key).indexOf(lower(expected)) >= 0;
 }
 
+function isNormalCandidateWindow(window) {
+    if (!window) {
+        return false;
+    }
+
+    const type = propertyText(window, "type");
+    if (type && Number(type) !== 0) {
+        return false;
+    }
+
+    if (propertyBool(window, "modal")) {
+        return false;
+    }
+
+    if (propertyText(window, "transientFor")
+        || propertyText(window, "transientParent")) {
+        return false;
+    }
+
+    return true;
+}
+
 function matchesBinding(window, binding) {
     const match = binding.match || {};
-    return matchesField(window, "resourceClass", match.resourceClass)
+    return isNormalCandidateWindow(window)
+        && matchesField(window, "resourceClass", match.resourceClass)
         && matchesField(window, "resourceName", match.resourceName)
         && matchesField(window, "windowClass", match.windowClass)
         && matchesField(window, "caption", match.caption)
