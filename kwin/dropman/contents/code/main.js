@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "restore-firefox-slide-hide-20260621";
+const SCRIPT_VERSION = "raw-normal-hide-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -141,7 +141,6 @@ function clearRestoreState(window) {
 }
 
 function applyClaimedGeometry(window, geometry) {
-    trySet(window, "minimized", false);
     return trySet(window, "frameGeometry", geometry);
 }
 
