@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "slide-summon-visible-20260621";
+const SCRIPT_VERSION = "minimized-claimed-window-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -104,6 +104,18 @@ function propertyText(object, key) {
     return "";
 }
 
+function propertyBool(object, key) {
+    try {
+        if (object && key in object) {
+            return object[key] === true || object[key] === "true";
+        }
+    } catch (error) {
+        log("could not read " + key + ": " + error);
+    }
+
+    return false;
+}
+
 function trySet(window, property, value) {
     try {
         if (property in window) {
@@ -115,6 +127,10 @@ function trySet(window, property, value) {
     }
 
     return false;
+}
+
+function isMinimized(window) {
+    return propertyBool(window, "minimized");
 }
 
 function tryCall(object, method, argument) {
@@ -705,7 +721,8 @@ function recoverSoleMatchingWindow(binding) {
     const window = candidates[0];
     binding.window = window;
     binding.shownGeometry = currentFrameGeometry(window);
-    binding.visible = !isParkedOffscreen(binding.shownGeometry, binding, window);
+    binding.visible = !isMinimized(window)
+        && !isParkedOffscreen(binding.shownGeometry, binding, window);
     tagDropManWindow(binding, window);
     watchClaimedWindow(binding, window);
     log("recovered sole matching " + binding.id
@@ -763,7 +780,7 @@ function restoreAppPersistedClaim(binding) {
     tagDropManWindow(binding, window);
 
     const liveGeometry = currentFrameGeometry(window);
-    if (isParkedOffscreen(liveGeometry, binding, window)) {
+    if (isMinimized(window) || isParkedOffscreen(liveGeometry, binding, window)) {
         binding.visible = false;
     }
 
@@ -799,8 +816,9 @@ function toggleBinding(binding) {
     prepareWindow(window, binding);
 
     const liveGeometry = currentFrameGeometry(window);
+    const liveMinimized = isMinimized(window);
     const liveParkedOffscreen = isParkedOffscreen(liveGeometry, binding, window);
-    if (liveParkedOffscreen) {
+    if (liveMinimized || liveParkedOffscreen) {
         binding.visible = false;
     }
 
@@ -844,6 +862,18 @@ function toggleBinding(binding) {
             + " hidden=" + geometryText(hidden));
     } else {
         moveWindowToCurrentContext(window, binding);
+        if (liveMinimized) {
+            const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
+            trySet(window, "frameGeometry", hidden);
+            trySet(window, "minimized", false);
+            trySet(window, "frameGeometry", binding.shownGeometry);
+            activateWindow(window, binding);
+            binding.visible = true;
+            log("showed minimized " + binding.id
+                + " hidden=" + geometryText(hidden)
+                + " shown=" + geometryText(binding.shownGeometry));
+            return;
+        }
         trySet(window, "frameGeometry", binding.shownGeometry);
         activateWindow(window, binding);
         binding.visible = true;
