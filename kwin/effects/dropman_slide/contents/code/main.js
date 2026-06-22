@@ -63,7 +63,7 @@ function geometryText(geometry) {
 class DropManSlideEffect {
     constructor() {
         this.claimsByUuid = {};
-        this.duration = animationTime(220);
+        this.duration = 420;
 
         effect.configChanged.connect(this.loadConfig.bind(this));
         effects.windowAdded.connect(this.manage.bind(this));
@@ -78,11 +78,13 @@ class DropManSlideEffect {
 
     loadConfig() {
         this.claimsByUuid = {};
-        this.duration = animationTime(effect.readConfig("Duration", 220));
+        const configuredDuration = Number(effect.readConfig("Duration", 420));
+        const scaledDuration = animationTime(configuredDuration);
+        this.duration = Math.max(scaledDuration, 260);
 
         const claimsJson = effect.readConfig("claimsJson", "");
         if (!claimsJson) {
-            log("no claimsJson in Effect-dropman_slide config");
+            log("no claimsJson in Effect-dropman_slide config; duration=" + this.duration);
             return;
         }
 
@@ -97,7 +99,8 @@ class DropManSlideEffect {
                     };
                 }
             });
-            log("loaded " + Object.keys(this.claimsByUuid).length + " tracked claim UUIDs");
+            log("loaded " + Object.keys(this.claimsByUuid).length
+                + " tracked claim UUIDs; duration=" + this.duration);
         } catch (error) {
             log("could not parse claimsJson: " + error);
         }
@@ -117,6 +120,13 @@ class DropManSlideEffect {
         if (window.windowFrameGeometryChanged) {
             window.windowFrameGeometryChanged.connect(
                 this.onWindowFrameGeometryChanged.bind(this));
+            if (this.isTracked(window)) {
+                log("watching tracked window " + asString(window.caption)
+                    + " uuid=" + windowUuid(window));
+            }
+        } else if (this.isTracked(window)) {
+            log("tracked window has no geometry signal " + asString(window.caption)
+                + " uuid=" + windowUuid(window));
         }
     }
 
@@ -125,6 +135,10 @@ class DropManSlideEffect {
             return;
         }
         if (!window.visible || !oldGeometry || !window.geometry) {
+            log("tracked geometry change ignored visible=" + window.visible
+                + " old=" + geometryText(oldGeometry)
+                + " new=" + geometryText(window.geometry)
+                + " caption=" + asString(window.caption));
             return;
         }
 
@@ -135,6 +149,9 @@ class DropManSlideEffect {
         if (deltaX === 0 && deltaY === 0
             && oldGeometry.width === newGeometry.width
             && oldGeometry.height === newGeometry.height) {
+            log("tracked geometry change had no movement "
+                + geometryText(oldGeometry)
+                + " caption=" + asString(window.caption));
             return;
         }
 
@@ -162,7 +179,9 @@ class DropManSlideEffect {
 
         log("animated " + asString(window.caption)
             + " from=" + geometryText(oldGeometry)
-            + " to=" + geometryText(newGeometry));
+            + " to=" + geometryText(newGeometry)
+            + " delta=" + deltaX + "," + deltaY
+            + " duration=" + this.duration);
     }
 }
 
