@@ -192,6 +192,17 @@ The cleanup script backs up `~/.config/kwinrc`, keeps only claims whose IDs
 still exist in `profilesJson`, and mirrors the cleaned claims to the DropMan
 Slide effect config groups.
 
+If a newly added profile is claimed but its keyboard shortcut does not fire,
+sync KGlobalAccel's DropMan shortcut entries from the live profiles:
+
+```bash
+./scripts/sync-dropman-shortcuts.py
+qdbus6 org.kde.KWin /KWin reconfigure
+```
+
+Then reload the DropMan KWin script if Plasma is still holding stale shortcut
+ownership.
+
 The app's claim button starts KWin's window picker, stores the picked window
 UUID and shown geometry in `Script-dropman` `claimsJson`, stages the picked
 window UUID for the resident script, then invokes `DropMan-ClaimPicked-<id>`
@@ -212,7 +223,7 @@ The starter profiles use identity fields observed on Geshem:
 - Firefox: `resourceClass=firefox_firefox`, `resourceName=firefox`
 - Uplink: `resourceClass=Uplink`, `resourceName=Uplink`
 - Konsole: `resourceClass=org.kde.konsole`, `resourceName=konsole`
-- Cool Retro Term: `resourceClass=cool-retro-term`,
+- Cool Retro Term: `resourceClass=cool-retro-term.cool-retro-term`,
   `resourceName=cool-retro-term`
 
 `widthPercent` and `heightPercent` remain in the prototype config as future

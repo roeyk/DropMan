@@ -95,7 +95,7 @@ const DEFAULT_CONFIG = {
             claimShortcut: "Meta+Shift+J",
             windowHints: {},
             match: {
-                resourceClass: "cool-retro-term",
+                resourceClass: "cool-retro-term.cool-retro-term",
                 resourceName: "cool-retro-term"
             }
         }

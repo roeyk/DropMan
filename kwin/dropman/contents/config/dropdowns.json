@@ -53,7 +53,7 @@
             "heightPercent": 45,
             "claimShortcut": "Meta+Shift+J",
             "match": {
-                "resourceClass": "cool-retro-term",
+                "resourceClass": "cool-retro-term.cool-retro-term",
                 "resourceName": "cool-retro-term"
             }
         }

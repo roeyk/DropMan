@@ -167,7 +167,7 @@ QVector<Profile> ProfileStore::defaultProfiles()
             .widthPercent = 100,
             .heightPercent = 45,
             .match = MatchRules{
-                .resourceClass = QStringLiteral("cool-retro-term"),
+                .resourceClass = QStringLiteral("cool-retro-term.cool-retro-term"),
                 .resourceName = QStringLiteral("cool-retro-term"),
                 .captionFilter = QString(),
                 .captionExclude = QString()
