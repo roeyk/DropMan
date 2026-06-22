@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "debounce-profile-toggle-20260622";
+const SCRIPT_VERSION = "restore-focus-without-raise-20260622";
 
 const STATE = {
     UNCLAIMED: "unclaimed",
@@ -737,6 +737,18 @@ function restoreFocusAfterHide(hiddenWindow, previousWindow, binding) {
         + " activeWindow=" + asString(workspace.activeWindow && workspace.activeWindow.caption));
 }
 
+function focusWindowWithoutRaise(window, binding) {
+    trySet(window, "minimized", false);
+
+    const focused = trySet(workspace, "activeWindow", window)
+        || trySet(window, "active", true);
+
+    log("focus without raise for " + binding.id
+        + " focused=" + focused
+        + " activeWindow=" + asString(workspace.activeWindow && workspace.activeWindow.caption));
+    return focused;
+}
+
 function restorePreviousDropdownAfterHide(hiddenWindow, binding) {
     const candidates = [previousActiveDropdownWindow, lastActiveDropdownWindow];
     if (workspace.stackingOrder) {
@@ -774,7 +786,7 @@ function restorePreviousDropdownAfterHide(hiddenWindow, binding) {
             continue;
         }
 
-        activateWindow(candidate, candidateBinding);
+        focusWindowWithoutRaise(candidate, candidateBinding);
         previousActiveDropdownWindow = null;
         lastActiveDropdownWindow = candidate;
         log("restored dropdown focus after hiding " + binding.id
