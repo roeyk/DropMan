@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "minimized-slide-recover-20260621";
+const SCRIPT_VERSION = "external-minimize-parking-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -613,12 +613,41 @@ function restoreFocusAfterHide(hiddenWindow, previousWindow, binding) {
         + " activeWindow=" + asString(workspace.activeWindow && workspace.activeWindow.caption));
 }
 
+function parkExternallyMinimizedWindow(binding, window) {
+    if (!binding.shownGeometry) {
+        binding.shownGeometry = currentFrameGeometry(window);
+    }
+
+    if (!binding.shownGeometry) {
+        log("externally minimized " + binding.id + " without known shown geometry");
+        binding.visible = false;
+        return;
+    }
+
+    const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
+    trySet(window, "minimized", false);
+    trySet(window, "frameGeometry", hidden);
+    binding.visible = false;
+    log("parked externally minimized " + binding.id
+        + " shown=" + geometryText(binding.shownGeometry)
+        + " hidden=" + geometryText(hidden));
+}
+
 function watchClaimedWindow(binding, window) {
     if (window.closed) {
         window.closed.connect(() => {
             if (binding.window === window) {
                 binding.window = null;
                 binding.visible = false;
+            }
+        });
+    }
+
+    if (window.minimizedChanged && !window.dropmanMinimizedWatcher) {
+        window.dropmanMinimizedWatcher = true;
+        window.minimizedChanged.connect(() => {
+            if (binding.window === window && isMinimized(window)) {
+                parkExternallyMinimizedWindow(binding, window);
             }
         });
     }
