@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "slide-effect-tags-20260621";
+const SCRIPT_VERSION = "slide-summon-visible-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -807,19 +807,25 @@ function toggleBinding(binding) {
     if (binding.visible) {
         if (!windowOnCurrentContext(window)) {
             moveWindowToCurrentContext(window, binding);
+            const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
+            trySet(window, "frameGeometry", hidden);
             trySet(window, "frameGeometry", binding.shownGeometry);
             activateWindow(window, binding);
             binding.visible = true;
-            log("moved visible " + binding.id
-                + " to current context shown=" + geometryText(binding.shownGeometry));
+            log("summoned visible " + binding.id
+                + " to current context hidden=" + geometryText(hidden)
+                + " shown=" + geometryText(binding.shownGeometry));
             return;
         }
 
         if (workspace.activeWindow !== window) {
+            const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
+            trySet(window, "frameGeometry", hidden);
             trySet(window, "frameGeometry", binding.shownGeometry);
             activateWindow(window, binding);
             binding.visible = true;
-            log("raised visible " + binding.id
+            log("summoned visible " + binding.id
+                + " hidden=" + geometryText(hidden)
                 + " shown=" + geometryText(binding.shownGeometry));
             return;
         }
