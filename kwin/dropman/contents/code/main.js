@@ -13,7 +13,17 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "no-focus-restore-on-hide-20260621";
+const SCRIPT_VERSION = "state-machine-skeleton-20260621";
+
+const STATE = {
+    UNCLAIMED: "unclaimed",
+    VISIBLE: "visible",
+    HIDDEN: "hidden",
+    SUMMONING: "summoning",
+    HIDING: "hiding",
+    EXTERNAL_MINIMIZED: "external_minimized",
+    LOST: "lost"
+};
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -72,6 +82,22 @@ let lastNonDropdownWindow = null;
 
 function log(message) {
     console.info(LOG_PREFIX + message);
+}
+
+function setBindingState(binding, state, reason) {
+    if (!binding || binding.state === state) {
+        return;
+    }
+
+    const previous = binding.state || STATE.UNCLAIMED;
+    binding.state = state;
+    log("state " + binding.id + " " + previous + " -> " + state
+        + (reason ? " (" + reason + ")" : ""));
+}
+
+function setBindingVisible(binding, visible, reason) {
+    binding.visible = visible;
+    setBindingState(binding, visible ? STATE.VISIBLE : STATE.HIDDEN, reason);
 }
 
 function asString(value) {
@@ -653,13 +679,13 @@ function parkExternallyMinimizedWindow(binding, window) {
 
     if (!binding.shownGeometry) {
         log("externally minimized " + binding.id + " without known shown geometry");
-        binding.visible = false;
+        setBindingVisible(binding, false, "external minimize without geometry");
         return;
     }
 
     const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
     applyRecoveredClaimedGeometry(window, hidden);
-    binding.visible = false;
+    setBindingVisible(binding, false, "taskbar minimize");
     log("parked externally minimized " + binding.id
         + " shown=" + geometryText(binding.shownGeometry)
         + " hidden=" + geometryText(hidden));
@@ -680,7 +706,7 @@ function showRetractedWindowFromActivation(binding, window) {
 
     moveWindowToCurrentContext(window, binding);
     applyRecoveredClaimedGeometry(window, binding.shownGeometry);
-    binding.visible = true;
+    setBindingVisible(binding, true, "taskbar activation");
     activateWindow(window, binding);
     log("showed retracted " + binding.id
         + " from activation shown=" + geometryText(binding.shownGeometry));
@@ -692,6 +718,7 @@ function watchClaimedWindow(binding, window) {
             if (binding.window === window) {
                 binding.window = null;
                 binding.visible = false;
+                setBindingState(binding, STATE.UNCLAIMED, "window closed");
             }
         });
     }
@@ -719,7 +746,7 @@ function tagDropManWindow(binding, window) {
 function finishClaimWindow(binding, window) {
     binding.window = window;
     binding.shownGeometry = currentFrameGeometry(window);
-    binding.visible = true;
+    setBindingVisible(binding, true, "claim");
     tagDropManWindow(binding, window);
 
     if (binding.shownGeometry) {
@@ -774,7 +801,7 @@ function recoverParkedWindow(binding) {
     const candidate = candidates[0];
     binding.window = candidate.window;
     binding.shownGeometry = restoredGeometryFromHidden(candidate.hidden, binding, candidate.window);
-    binding.visible = false;
+    setBindingVisible(binding, false, "recovered parked");
     tagDropManWindow(binding, candidate.window);
     watchClaimedWindow(binding, candidate.window);
     log("recovered parked " + binding.id
@@ -803,8 +830,10 @@ function recoverSoleMatchingWindow(binding) {
     const window = candidates[0];
     binding.window = window;
     binding.shownGeometry = currentFrameGeometry(window);
-    binding.visible = !isMinimized(window)
-        && !isParkedOffscreen(binding.shownGeometry, binding, window);
+    setBindingVisible(
+        binding,
+        !isMinimized(window) && !isParkedOffscreen(binding.shownGeometry, binding, window),
+        "recovered sole matching");
     tagDropManWindow(binding, window);
     watchClaimedWindow(binding, window);
     log("recovered sole matching " + binding.id
@@ -858,12 +887,12 @@ function restoreAppPersistedClaim(binding) {
 
     binding.window = window;
     binding.shownGeometry = shown;
-    binding.visible = claim.visible === true;
+    setBindingVisible(binding, claim.visible === true, "restored persisted claim");
     tagDropManWindow(binding, window);
 
     const liveGeometry = currentFrameGeometry(window);
     if (isMinimized(window) || isParkedOffscreen(liveGeometry, binding, window)) {
-        binding.visible = false;
+        setBindingVisible(binding, false, "restored parked or minimized");
     }
 
     watchClaimedWindow(binding, window);
@@ -901,7 +930,7 @@ function toggleBinding(binding) {
     const liveMinimized = isMinimized(window);
     const liveParkedOffscreen = isParkedOffscreen(liveGeometry, binding, window);
     if (liveMinimized || liveParkedOffscreen) {
-        binding.visible = false;
+        setBindingVisible(binding, false, "live geometry hidden");
     }
 
     if (binding.visible) {
@@ -911,7 +940,7 @@ function toggleBinding(binding) {
             applyRecoveredClaimedGeometry(window, hidden);
             applyRecoveredClaimedGeometry(window, binding.shownGeometry);
             activateWindow(window, binding);
-            binding.visible = true;
+            setBindingVisible(binding, true, "summoned to current context");
             log("summoned visible " + binding.id
                 + " to current context hidden=" + geometryText(hidden)
                 + " shown=" + geometryText(binding.shownGeometry));
@@ -923,7 +952,7 @@ function toggleBinding(binding) {
             applyClaimedGeometry(window, hidden);
             applyClaimedGeometry(window, binding.shownGeometry);
             activateWindow(window, binding);
-            binding.visible = true;
+            setBindingVisible(binding, true, "summoned inactive visible window");
             log("summoned visible " + binding.id
                 + " hidden=" + geometryText(hidden)
                 + " shown=" + geometryText(binding.shownGeometry));
@@ -936,7 +965,7 @@ function toggleBinding(binding) {
         }
 
         const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
-        binding.visible = false;
+        setBindingVisible(binding, false, "profile shortcut hide");
         binding.suppressActivationUntil = nowMilliseconds() + 600;
         applyClaimedGeometry(window, hidden);
         log("hid " + binding.id
@@ -949,7 +978,7 @@ function toggleBinding(binding) {
             applyClaimedGeometry(window, hidden);
             applyClaimedGeometry(window, binding.shownGeometry);
             activateWindow(window, binding);
-            binding.visible = true;
+            setBindingVisible(binding, true, "show minimized");
             log("showed minimized " + binding.id
                 + " hidden=" + geometryText(hidden)
                 + " shown=" + geometryText(binding.shownGeometry));
@@ -957,7 +986,7 @@ function toggleBinding(binding) {
         }
         applyClaimedGeometry(window, binding.shownGeometry);
         activateWindow(window, binding);
-        binding.visible = true;
+        setBindingVisible(binding, true, "show hidden");
         log("showed " + binding.id
             + " shown=" + geometryText(binding.shownGeometry)
             + " recoveredOffscreen=" + liveParkedOffscreen);
@@ -1061,6 +1090,7 @@ function releaseBinding(binding) {
     binding.window = null;
     binding.shownGeometry = null;
     binding.visible = false;
+    setBindingState(binding, STATE.UNCLAIMED, "release");
 }
 
 function registerBinding(config) {
@@ -1082,6 +1112,7 @@ function registerBinding(config) {
         windowHints: config.windowHints || {},
         window: null,
         shownGeometry: null,
+        state: STATE.UNCLAIMED,
         visible: false,
         suppressActivationUntil: 0
     };
