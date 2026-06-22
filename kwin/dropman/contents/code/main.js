@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "visible-shortcut-retracts-20260621";
+const SCRIPT_VERSION = "covered-dropdown-summon-20260621";
 
 const STATE = {
     UNCLAIMED: "unclaimed",
@@ -467,6 +467,16 @@ function isClaimedWindow(window) {
     return claimed;
 }
 
+function bindingForWindow(window) {
+    let found = null;
+    bindings.forEach((binding) => {
+        if (binding.window === window) {
+            found = binding;
+        }
+    });
+    return found;
+}
+
 function isDropManControlWindow(window) {
     const caption = lower(window && window.caption);
     const resourceClass = lower(window && window.resourceClass);
@@ -531,11 +541,13 @@ function rememberFocusWindow(window) {
 function prepareWindow(window, binding) {
     const hints = binding.windowHints || {};
 
+    trySet(window, "keepAbove", true);
+
     if (hints.noBorder === true) {
         trySet(window, "noBorder", true);
     }
-    if (hints.keepAbove === true) {
-        trySet(window, "keepAbove", true);
+    if (hints.keepAbove === false) {
+        trySet(window, "keepAbove", false);
     }
     if (hints.skipTaskbar === true) {
         trySet(window, "skipTaskbar", true);
@@ -934,6 +946,21 @@ function toggleBinding(binding) {
     }
 
     if (binding.visible) {
+        const activeBinding = bindingForWindow(workspace.activeWindow);
+        if (activeBinding && activeBinding !== binding && activeBinding.visible) {
+            moveWindowToCurrentContext(window, binding);
+            const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
+            applyClaimedGeometry(window, hidden);
+            applyClaimedGeometry(window, binding.shownGeometry);
+            activateWindow(window, binding);
+            setBindingVisible(binding, true, "summoned from behind another dropdown");
+            log("summoned covered " + binding.id
+                + " over " + activeBinding.id
+                + " hidden=" + geometryText(hidden)
+                + " shown=" + geometryText(binding.shownGeometry));
+            return;
+        }
+
         if (!windowOnCurrentContext(window)) {
             moveWindowToCurrentContext(window, binding);
             const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
