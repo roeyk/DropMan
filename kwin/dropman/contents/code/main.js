@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "shortcut-entry-diagnostics-20260622";
+const SCRIPT_VERSION = "recover-visible-stops-toggle-20260622";
 
 const STATE = {
     UNCLAIMED: "unclaimed",
@@ -1107,6 +1107,11 @@ function toggleBinding(binding) {
             return;
         }
         window = findWindow(binding);
+        if (binding.visible) {
+            log("recovered visible " + binding.id
+                + "; next shortcut press will toggle");
+            return;
+        }
     }
 
     if (!binding.shownGeometry) {
