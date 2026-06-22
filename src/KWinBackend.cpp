@@ -192,6 +192,23 @@ QString pickedWindowSummary(const QString &pickerOutput)
              pickedWindowCaptionValue(pickerOutput));
 }
 
+void writeSlideEffectClaims(KConfig &kwinConfig, const QString &claimsJson)
+{
+    const QStringList groupNames{
+        QStringLiteral("Effect-dropman_slide"),
+        QStringLiteral("Effect-kwin4_effect_dropman_slide"),
+        QStringLiteral("Effect-kwin_wayland4_effect_dropman_slide"),
+        QStringLiteral("Effect-kwin4_effect_dropman-slide"),
+        QStringLiteral("Effect-kwin_wayland4_effect_dropman-slide")
+    };
+
+    for (const QString &groupName : groupNames) {
+        KConfigGroup group(&kwinConfig, groupName);
+        group.writeEntry(QStringLiteral("claimsJson"), claimsJson);
+        group.sync();
+    }
+}
+
 bool writePendingClaim(const Profile &profile,
                        const QString &uuid,
                        const QString &pickerOutput,
@@ -199,7 +216,6 @@ bool writePendingClaim(const Profile &profile,
 {
     KConfig kwinConfig(QStringLiteral("kwinrc"), KConfig::NoGlobals);
     KConfigGroup scriptGroup(&kwinConfig, QStringLiteral("Script-dropman"));
-    KConfigGroup effectGroup(&kwinConfig, QStringLiteral("Effect-dropman_slide"));
 
     const QString profilesJson = scriptGroup.readEntry(QStringLiteral("profilesJson"), QString());
     if (!profilesJson.isEmpty()) {
@@ -253,14 +269,13 @@ bool writePendingClaim(const Profile &profile,
     scriptGroup.writeEntry(
         QStringLiteral("claimsJson"),
         QString::fromUtf8(QJsonDocument(claimsRoot).toJson(QJsonDocument::Compact)));
-    effectGroup.writeEntry(
-        QStringLiteral("claimsJson"),
+    writeSlideEffectClaims(
+        kwinConfig,
         QString::fromUtf8(QJsonDocument(claimsRoot).toJson(QJsonDocument::Compact)));
 
     scriptGroup.writeEntry(QStringLiteral("pendingClaimProfileId"), profile.id);
     scriptGroup.writeEntry(QStringLiteral("pendingClaimWindowUuid"), uuid);
     scriptGroup.sync();
-    effectGroup.sync();
 
     if (!kwinConfig.sync()) {
         if (errorMessage) {
@@ -276,7 +291,6 @@ bool removePersistedClaim(const Profile &profile, QString *errorMessage)
 {
     KConfig kwinConfig(QStringLiteral("kwinrc"), KConfig::NoGlobals);
     KConfigGroup scriptGroup(&kwinConfig, QStringLiteral("Script-dropman"));
-    KConfigGroup effectGroup(&kwinConfig, QStringLiteral("Effect-dropman_slide"));
 
     const QString claimsJson = scriptGroup.readEntry(QStringLiteral("claimsJson"), QString());
     if (claimsJson.isEmpty()) {
@@ -301,11 +315,10 @@ bool removePersistedClaim(const Profile &profile, QString *errorMessage)
     scriptGroup.writeEntry(
         QStringLiteral("claimsJson"),
         QString::fromUtf8(QJsonDocument(root).toJson(QJsonDocument::Compact)));
-    effectGroup.writeEntry(
-        QStringLiteral("claimsJson"),
+    writeSlideEffectClaims(
+        kwinConfig,
         QString::fromUtf8(QJsonDocument(root).toJson(QJsonDocument::Compact)));
     scriptGroup.sync();
-    effectGroup.sync();
 
     if (!kwinConfig.sync()) {
         if (errorMessage) {
@@ -335,7 +348,6 @@ void KWinBackend::syncEffectClaimsFromScript()
 {
     KConfig kwinConfig(QStringLiteral("kwinrc"), KConfig::NoGlobals);
     KConfigGroup scriptGroup(&kwinConfig, QStringLiteral("Script-dropman"));
-    KConfigGroup effectGroup(&kwinConfig, QStringLiteral("Effect-dropman_slide"));
 
     const QString claimsJson = scriptGroup.readEntry(QStringLiteral("claimsJson"), QString());
     if (claimsJson.isEmpty()) {
@@ -351,14 +363,13 @@ void KWinBackend::syncEffectClaimsFromScript()
         return;
     }
 
-    effectGroup.writeEntry(QStringLiteral("claimsJson"), claimsJson);
-    effectGroup.sync();
+    writeSlideEffectClaims(kwinConfig, claimsJson);
     if (!kwinConfig.sync()) {
         emit logMessage(QStringLiteral("Could not sync existing claims to DropMan Slide config"));
         return;
     }
 
-    emit logMessage(QStringLiteral("Mirrored existing claims to DropMan Slide effect config"));
+    emit logMessage(QStringLiteral("Mirrored existing claims to DropMan Slide effect config groups"));
     if (reconfigureKWin()) {
         emit logMessage(QStringLiteral("Requested KWin reconfigure for DropMan Slide claims"));
     } else {
