@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "state-machine-dispatcher-20260622";
+const SCRIPT_VERSION = "shortcut-entry-diagnostics-20260622";
 
 const STATE = {
     UNCLAIMED: "unclaimed",
@@ -1301,7 +1301,13 @@ function registerBinding(config) {
         "DropMan-" + binding.id,
         "DropMan: " + binding.name,
         binding.shortcut,
-        () => toggleBinding(binding)
+        () => {
+            log("shortcut fired " + binding.id
+                + " state=" + binding.state
+                + " visible=" + binding.visible
+                + " hasWindow=" + Boolean(binding.window));
+            toggleBinding(binding);
+        }
     );
 
     if (binding.claimShortcut) {
@@ -1309,7 +1315,10 @@ function registerBinding(config) {
             "DropMan-Claim-" + binding.id,
             "DropMan: Claim " + binding.name,
             binding.claimShortcut,
-            () => claimActiveWindow(binding)
+            () => {
+                log("claim shortcut fired " + binding.id);
+                claimActiveWindow(binding);
+            }
         );
     }
 
