@@ -25,6 +25,9 @@ An experimental scripted effect now lives in:
 kwin/effects/dropman_slide
 ```
 
+The effect declares its config keys in `contents/config/main.xml`, including
+`claimsJson`, show/hide durations, and `LargeEdgeFallback`.
+
 The effect first tries to track exact app-picked claims. The Qt app mirrors
 picked claims into several KWin effect config groups. Each mirrored claim now
 contains the profile id, window UUID, edge, and shown geometry. Because Geshem
@@ -37,7 +40,8 @@ and the effect treats that as another preferred runtime handoff when available.
 While that protocol is being validated, the effect still has an experimental
 fallback that animates large edge-to-edge geometry moves. This is intentionally
 for testing only; the final runtime should use the explicit claim geometry
-handoff, not broad movement heuristics.
+handoff, not broad movement heuristics. The fallback ignores small surfaces so
+Plasma taskbar/popup movement is not mistaken for a dropdown transition.
 
 ## Target Runtime
 

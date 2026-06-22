@@ -74,6 +74,10 @@ The configured edge controls hide direction, not forced shown geometry, in the
 default mode. Profile size percentages should only take effect later through an
 explicit mode such as `resize_to_profile`.
 
+Shortcut, taskbar, reload, and focus behavior should follow the explicit
+profile state machine in [STATE_MACHINE.md](STATE_MACHINE.md). The state
+machine is the source of truth for what each event does in each state.
+
 Claiming a window does not hide it. A profile toggle raises or shows the
 claimed window immediately unless that exact dropdown is already the active
 window; only then does the toggle hide it. If the user has moved to another

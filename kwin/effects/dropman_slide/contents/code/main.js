@@ -130,13 +130,15 @@ class DropManSlideEffect {
         this.claims = [];
         const configuredShowDuration = Number(effect.readConfig("ShowDuration", 420));
         const configuredHideDuration = Number(effect.readConfig("HideDuration", 420));
+        this.largeEdgeFallback = effect.readConfig("LargeEdgeFallback", true) === true;
         this.showDuration = Math.max(animationTime(configuredShowDuration), 260);
         this.hideDuration = Math.max(animationTime(configuredHideDuration), 260);
 
         const claimsJson = effect.readConfig("claimsJson", "");
         if (!claimsJson) {
             log("no claimsJson in Effect-dropman_slide config; showDuration="
-                + this.showDuration + " hideDuration=" + this.hideDuration);
+                + this.showDuration + " hideDuration=" + this.hideDuration
+                + " largeEdgeFallback=" + this.largeEdgeFallback);
             return;
         }
 
@@ -164,7 +166,8 @@ class DropManSlideEffect {
             log("loaded " + Object.keys(this.claimsByUuid).length
                 + " tracked claim UUIDs and " + this.claims.length
                 + " claim geometries; showDuration=" + this.showDuration
-                + " hideDuration=" + this.hideDuration);
+                + " hideDuration=" + this.hideDuration
+                + " largeEdgeFallback=" + this.largeEdgeFallback);
         } catch (error) {
             log("could not parse claimsJson: " + error);
         }
@@ -236,7 +239,18 @@ class DropManSlideEffect {
     }
 
     isLargeEdgeMove(oldGeometry, newGeometry) {
+        if (this.largeEdgeFallback !== true) {
+            return false;
+        }
+
         if (!oldGeometry || !newGeometry) {
+            return false;
+        }
+
+        const minimumDropdownWidth = 500;
+        const minimumDropdownHeight = 300;
+        if (Math.min(oldGeometry.width, newGeometry.width) < minimumDropdownWidth
+            || Math.min(oldGeometry.height, newGeometry.height) < minimumDropdownHeight) {
             return false;
         }
 
