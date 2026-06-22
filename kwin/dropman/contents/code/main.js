@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "external-minimize-parking-20260621";
+const SCRIPT_VERSION = "taskbar-activate-retracted-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -462,6 +462,15 @@ function prepareNoticeWindow(window) {
 
 function rememberFocusWindow(window) {
     if (!window || isClaimedWindow(window) || isDropManControlWindow(window)) {
+        if (isClaimedWindow(window)) {
+            bindings.forEach((binding) => {
+                if (binding.window === window
+                    && !binding.visible
+                    && isParkedOffscreen(currentFrameGeometry(window), binding, window)) {
+                    showRetractedWindowFromActivation(binding, window);
+                }
+            });
+        }
         return;
     }
 
@@ -631,6 +640,28 @@ function parkExternallyMinimizedWindow(binding, window) {
     log("parked externally minimized " + binding.id
         + " shown=" + geometryText(binding.shownGeometry)
         + " hidden=" + geometryText(hidden));
+}
+
+function showRetractedWindowFromActivation(binding, window) {
+    if (!binding.shownGeometry) {
+        binding.shownGeometry = restoredGeometryFromHidden(
+            currentFrameGeometry(window),
+            binding,
+            window);
+    }
+
+    if (!binding.shownGeometry) {
+        log("activated retracted " + binding.id + " without known shown geometry");
+        return;
+    }
+
+    moveWindowToCurrentContext(window, binding);
+    trySet(window, "minimized", false);
+    trySet(window, "frameGeometry", binding.shownGeometry);
+    binding.visible = true;
+    activateWindow(window, binding);
+    log("showed retracted " + binding.id
+        + " from activation shown=" + geometryText(binding.shownGeometry));
 }
 
 function watchClaimedWindow(binding, window) {
