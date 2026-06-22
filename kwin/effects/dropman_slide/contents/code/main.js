@@ -10,6 +10,7 @@
 "use strict";
 
 const LOG_PREFIX = "dropman-slide: ";
+const EFFECT_VERSION = "uuid-first-explicit-match-20260621";
 
 function log(message) {
     console.info(LOG_PREFIX + message);
@@ -110,6 +111,7 @@ function geometriesEqual(a, b) {
 class DropManSlideEffect {
     constructor() {
         this.claimsByUuid = {};
+        this.claimDetailsByUuid = {};
         this.claims = [];
         this.showDuration = 170;
         this.hideDuration = 140;
@@ -122,11 +124,12 @@ class DropManSlideEffect {
         }
 
         this.loadConfig();
-        log("loaded");
+        log("loaded; effectVersion=" + EFFECT_VERSION);
     }
 
     loadConfig() {
         this.claimsByUuid = {};
+        this.claimDetailsByUuid = {};
         this.claims = [];
         const configuredShowDuration = Number(effect.readConfig("ShowDuration", 170));
         const configuredHideDuration = Number(effect.readConfig("HideDuration", 140));
@@ -149,18 +152,24 @@ class DropManSlideEffect {
                 const claim = claims[profileId] || {};
                 const uuid = normalizedId(claim.windowUuid);
                 const shownGeometry = parsedGeometry(claim.shownGeometry);
-                if (uuid) {
-                    this.claimsByUuid[uuid] = {
-                        profileId: profileId
-                    };
-                }
                 if (shownGeometry) {
-                    this.claims.push({
+                    const entry = {
                         profileId: profileId,
                         uuid: uuid,
                         edge: asString(claim.edge || ""),
                         shownGeometry: shownGeometry
-                    });
+                    };
+                    this.claims.push(entry);
+                    if (uuid) {
+                        this.claimsByUuid[uuid] = {
+                            profileId: profileId
+                        };
+                        this.claimDetailsByUuid[uuid] = entry;
+                    }
+                } else if (uuid) {
+                    this.claimsByUuid[uuid] = {
+                        profileId: profileId
+                    };
                 }
             });
             log("loaded " + Object.keys(this.claimsByUuid).length
@@ -215,8 +224,16 @@ class DropManSlideEffect {
     }
 
     matchingClaimTransition(window, oldGeometry, newGeometry) {
-        for (let i = 0; i < this.claims.length; ++i) {
-            const claim = this.claims[i];
+        const uuid = windowUuid(window);
+        const uuidClaim = uuid ? this.claimDetailsByUuid[uuid] : null;
+        const claims = uuidClaim ? [uuidClaim] : this.claims;
+
+        for (let i = 0; i < claims.length; ++i) {
+            const claim = claims[i];
+            if (!uuidClaim && claim.uuid && uuid && claim.uuid !== uuid) {
+                continue;
+            }
+
             const hiddenGeometries = this.hiddenGeometriesForClaim(claim, window);
             for (let j = 0; j < hiddenGeometries.length; ++j) {
                 const hidden = hiddenGeometries[j];
