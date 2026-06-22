@@ -331,6 +331,41 @@ QString KWinBackend::activeWindowIdentity() const
         "Expected fields: resourceClass, resourceName, caption.");
 }
 
+void KWinBackend::syncEffectClaimsFromScript()
+{
+    KConfig kwinConfig(QStringLiteral("kwinrc"), KConfig::NoGlobals);
+    KConfigGroup scriptGroup(&kwinConfig, QStringLiteral("Script-dropman"));
+    KConfigGroup effectGroup(&kwinConfig, QStringLiteral("Effect-dropman_slide"));
+
+    const QString claimsJson = scriptGroup.readEntry(QStringLiteral("claimsJson"), QString());
+    if (claimsJson.isEmpty()) {
+        emit logMessage(QStringLiteral("No existing Script-dropman claims to mirror to DropMan Slide"));
+        return;
+    }
+
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(claimsJson.toUtf8(), &parseError);
+    if (!document.isObject()) {
+        emit logMessage(QStringLiteral("Could not mirror existing claims to DropMan Slide: %1")
+                            .arg(parseError.errorString()));
+        return;
+    }
+
+    effectGroup.writeEntry(QStringLiteral("claimsJson"), claimsJson);
+    effectGroup.sync();
+    if (!kwinConfig.sync()) {
+        emit logMessage(QStringLiteral("Could not sync existing claims to DropMan Slide config"));
+        return;
+    }
+
+    emit logMessage(QStringLiteral("Mirrored existing claims to DropMan Slide effect config"));
+    if (reconfigureKWin()) {
+        emit logMessage(QStringLiteral("Requested KWin reconfigure for DropMan Slide claims"));
+    } else {
+        emit logMessage(QStringLiteral("Could not request KWin reconfigure for DropMan Slide claims"));
+    }
+}
+
 void KWinBackend::claimPickedWindow(Profile &profile)
 {
     emit logMessage(QStringLiteral("Starting KWin window picker for %1").arg(profile.name));

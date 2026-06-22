@@ -94,6 +94,7 @@ MainWindow::MainWindow(QWidget *parent)
     loadProfiles();
     refreshSelectionState();
     appendLog(QStringLiteral("DropMan started. Design rule: match many, bind one."));
+    m_backend.syncEffectClaimsFromScript();
 }
 
 Profile *MainWindow::selectedProfile()
