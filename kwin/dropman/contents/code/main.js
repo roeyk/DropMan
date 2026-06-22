@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "focus-before-hide-20260621";
+const SCRIPT_VERSION = "suppress-post-hide-activation-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -131,6 +131,10 @@ function trySet(window, property, value) {
 
 function isMinimized(window) {
     return propertyBool(window, "minimized");
+}
+
+function nowMilliseconds() {
+    return Date.now ? Date.now() : new Date().getTime();
 }
 
 function clearRestoreState(window) {
@@ -480,6 +484,10 @@ function rememberFocusWindow(window) {
     if (!window || isClaimedWindow(window) || isDropManControlWindow(window)) {
         if (isClaimedWindow(window)) {
             bindings.forEach((binding) => {
+                if (binding.suppressActivationUntil
+                    && nowMilliseconds() < binding.suppressActivationUntil) {
+                    return;
+                }
                 if (binding.window === window
                     && !binding.visible
                     && isParkedOffscreen(currentFrameGeometry(window), binding, window)) {
@@ -929,6 +937,7 @@ function toggleBinding(binding) {
 
         const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
         binding.visible = false;
+        binding.suppressActivationUntil = nowMilliseconds() + 600;
         restoreFocusAfterHide(window, lastNonDropdownWindow, binding);
         applyClaimedGeometry(window, hidden);
         log("hid " + binding.id
@@ -1074,7 +1083,8 @@ function registerBinding(config) {
         windowHints: config.windowHints || {},
         window: null,
         shownGeometry: null,
-        visible: false
+        visible: false,
+        suppressActivationUntil: 0
     };
 
     bindings.set(binding.id, binding);
