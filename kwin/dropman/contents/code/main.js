@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "explicit-keep-above-20260621";
+const SCRIPT_VERSION = "visible-dropdown-focus-restore-20260621";
 
 const STATE = {
     UNCLAIMED: "unclaimed",
@@ -699,11 +699,27 @@ function restoreFocusAfterHide(hiddenWindow, previousWindow, binding) {
 
 function restorePreviousDropdownAfterHide(hiddenWindow, binding) {
     const candidates = [previousActiveDropdownWindow, lastActiveDropdownWindow];
+    if (workspace.stackingOrder) {
+        for (let i = workspace.stackingOrder.length - 1; i >= 0; --i) {
+            candidates.push(workspace.stackingOrder[i]);
+        }
+    }
+
+    bindings.forEach((candidateBinding) => {
+        candidates.push(candidateBinding.window);
+    });
+
+    const seen = [];
     for (let i = 0; i < candidates.length; ++i) {
         const candidate = candidates[i];
         if (!candidate || candidate === hiddenWindow) {
             continue;
         }
+
+        if (seen.indexOf(candidate) !== -1) {
+            continue;
+        }
+        seen.push(candidate);
 
         const candidateBinding = bindingForWindow(candidate);
         if (!candidateBinding || !candidateBinding.visible) {
@@ -713,7 +729,8 @@ function restorePreviousDropdownAfterHide(hiddenWindow, binding) {
         const geometry = currentFrameGeometry(candidate);
         if (!geometry
             || isMinimized(candidate)
-            || isParkedOffscreen(geometry, candidateBinding, candidate)) {
+            || isParkedOffscreen(geometry, candidateBinding, candidate)
+            || !windowOnCurrentContext(candidate)) {
             continue;
         }
 
