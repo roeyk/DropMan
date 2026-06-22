@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "suppress-post-hide-activation-20260621";
+const SCRIPT_VERSION = "no-focus-restore-on-hide-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -938,7 +938,6 @@ function toggleBinding(binding) {
         const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
         binding.visible = false;
         binding.suppressActivationUntil = nowMilliseconds() + 600;
-        restoreFocusAfterHide(window, lastNonDropdownWindow, binding);
         applyClaimedGeometry(window, hidden);
         log("hid " + binding.id
             + " shown=" + geometryText(binding.shownGeometry)
