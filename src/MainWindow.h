@@ -26,6 +26,7 @@ private:
     void addProfile();
     void removeSelectedProfile();
     void refreshSelectionState();
+    void syncClaimStatus();
     void showClaimNotice(const QString &profileName, const QString &windowCaption);
 
     ProfileModel m_profiles;

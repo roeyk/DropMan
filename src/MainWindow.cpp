@@ -77,13 +77,17 @@ MainWindow::MainWindow(QWidget *parent)
         const int row = selectedProfileRow();
         if (auto *profile = m_profiles.profileAt(row)) {
             m_backend.claimPickedWindow(*profile);
+            syncClaimStatus();
             m_profiles.notifyProfileChanged(row);
         }
     });
 
     connect(m_releaseButton, &QPushButton::clicked, this, [this]() {
-        if (auto *profile = selectedProfile()) {
+        const int row = selectedProfileRow();
+        if (auto *profile = m_profiles.profileAt(row)) {
             m_backend.releaseClaim(*profile);
+            syncClaimStatus();
+            m_profiles.notifyProfileChanged(row);
         }
     });
 
@@ -130,6 +134,7 @@ void MainWindow::loadProfiles()
 {
     QString error;
     m_profiles.setProfiles(ProfileStore::load(&error));
+    syncClaimStatus();
     m_table->resizeColumnsToContents();
     if (m_profiles.rowCount() > 0) {
         m_table->selectRow(0);
@@ -203,6 +208,11 @@ void MainWindow::removeSelectedProfile()
     refreshSelectionState();
 }
 
+void MainWindow::syncClaimStatus()
+{
+    m_profiles.setClaimedProfileIds(m_backend.claimedProfileIds());
+}
+
 void MainWindow::showClaimNotice(const QString &profileName, const QString &windowCaption)
 {
     if (m_claimNotice) {
@@ -211,7 +221,7 @@ void MainWindow::showClaimNotice(const QString &profileName, const QString &wind
     }
 
     auto *notice = new QWidget(nullptr,
-                               Qt::Window
+                               Qt::ToolTip
                                    | Qt::FramelessWindowHint
                                    | Qt::WindowStaysOnTopHint
                                    | Qt::WindowDoesNotAcceptFocus);
@@ -219,6 +229,7 @@ void MainWindow::showClaimNotice(const QString &profileName, const QString &wind
     notice->setAttribute(Qt::WA_DeleteOnClose);
     notice->setAttribute(Qt::WA_TranslucentBackground);
     notice->setAttribute(Qt::WA_ShowWithoutActivating);
+    notice->setAttribute(Qt::WA_X11NetWmWindowTypeNotification);
     notice->setWindowTitle(QStringLiteral("DropMan claim confirmation"));
 
     auto *layout = new QVBoxLayout(notice);
@@ -269,11 +280,13 @@ void MainWindow::showClaimNotice(const QString &profileName, const QString &wind
     m_claimNotice = notice;
     notice->show();
     notice->raise();
-    QTimer::singleShot(0, notice, [notice]() {
-        if (notice->isVisible()) {
-            notice->raise();
-        }
-    });
+    for (int delay : {0, 50, 150, 350, 750}) {
+        QTimer::singleShot(delay, notice, [notice]() {
+            if (notice->isVisible()) {
+                notice->raise();
+            }
+        });
+    }
 
     QTimer::singleShot(5000, notice, [this, notice, effect]() {
         if (!notice->isVisible()) {

@@ -8,6 +8,7 @@
 #include <QJsonParseError>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QSet>
 #include <QStringList>
 #include <QThread>
 
@@ -343,6 +344,33 @@ QString KWinBackend::activeWindowIdentity() const
     return QStringLiteral(
         "KWin backend placeholder: wire this to the Plasma/KWin bridge. "
         "Expected fields: resourceClass, resourceName, caption.");
+}
+
+QSet<QString> KWinBackend::claimedProfileIds() const
+{
+    KConfig kwinConfig(QStringLiteral("kwinrc"), KConfig::NoGlobals);
+    KConfigGroup scriptGroup(&kwinConfig, QStringLiteral("Script-dropman"));
+
+    const QString claimsJson = scriptGroup.readEntry(QStringLiteral("claimsJson"), QString());
+    if (claimsJson.isEmpty()) {
+        return {};
+    }
+
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(claimsJson.toUtf8(), &parseError);
+    if (!document.isObject()) {
+        return {};
+    }
+
+    QSet<QString> ids;
+    const QJsonObject claims = document.object().value(QStringLiteral("claims")).toObject();
+    for (auto it = claims.constBegin(); it != claims.constEnd(); ++it) {
+        if (it.value().isObject()) {
+            ids.insert(it.key());
+        }
+    }
+
+    return ids;
 }
 
 void KWinBackend::syncEffectClaimsFromScript()

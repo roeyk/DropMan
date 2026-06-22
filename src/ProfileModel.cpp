@@ -214,6 +214,20 @@ void ProfileModel::notifyProfileChanged(int row)
     emit dataChanged(index(row, 0), index(row, columnCount() - 1), {Qt::DisplayRole, Qt::EditRole});
 }
 
+void ProfileModel::setClaimedProfileIds(const QSet<QString> &ids)
+{
+    for (int row = 0; row < m_profiles.size(); ++row) {
+        auto &profile = m_profiles[row];
+        const bool claimed = ids.contains(profile.id);
+        if (profile.claimed == claimed) {
+            continue;
+        }
+
+        profile.claimed = claimed;
+        emit dataChanged(index(row, 9), index(row, 9), {Qt::DisplayRole});
+    }
+}
+
 QString ProfileModel::uniqueProfileId(const QString &base) const
 {
     auto exists = [this](const QString &candidate) {

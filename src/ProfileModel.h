@@ -3,6 +3,7 @@
 #include "Profile.h"
 
 #include <QAbstractTableModel>
+#include <QSet>
 #include <QVector>
 
 class ProfileModel : public QAbstractTableModel {
@@ -25,6 +26,7 @@ public:
     int addProfile();
     bool removeProfile(int row);
     void notifyProfileChanged(int row);
+    void setClaimedProfileIds(const QSet<QString> &ids);
 
 private:
     QString uniqueProfileId(const QString &base) const;

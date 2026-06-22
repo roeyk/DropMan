@@ -3,6 +3,7 @@
 #include "Profile.h"
 
 #include <QObject>
+#include <QSet>
 #include <QString>
 
 class KWinBackend : public QObject {
@@ -12,6 +13,7 @@ public:
     explicit KWinBackend(QObject *parent = nullptr);
 
     QString activeWindowIdentity() const;
+    QSet<QString> claimedProfileIds() const;
     void syncEffectClaimsFromScript();
     void claimPickedWindow(Profile &profile);
     void releaseClaim(Profile &profile);
