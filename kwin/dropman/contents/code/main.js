@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "ignore-dialog-candidates-20260621";
+const SCRIPT_VERSION = "debounce-profile-toggle-20260622";
 
 const STATE = {
     UNCLAIMED: "unclaimed",
@@ -1020,6 +1020,14 @@ function restoreAppPersistedClaim(binding) {
 }
 
 function toggleBinding(binding) {
+    const now = nowMilliseconds();
+    if (binding.lastToggleAt && now - binding.lastToggleAt < 300) {
+        log("ignored rapid toggle for " + binding.id
+            + " after " + (now - binding.lastToggleAt) + "ms");
+        return;
+    }
+    binding.lastToggleAt = now;
+
     let window = findWindow(binding);
     if (!window) {
         if (!recoverParkedWindow(binding) && !recoverSoleMatchingWindow(binding)) {
@@ -1235,6 +1243,7 @@ function registerBinding(config) {
         shownGeometry: null,
         state: STATE.UNCLAIMED,
         visible: false,
+        lastToggleAt: 0,
         suppressActivationUntil: 0
     };
 
