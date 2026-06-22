@@ -86,7 +86,7 @@ qdbus6 org.kde.KWin /KWin reconfigure
 Expected KWin logs for the preserve-geometry prototype include:
 
 ```text
-dropman: loaded 3 bindings; scriptVersion=visible-dropdown-focus-restore-20260621
+dropman: loaded 3 bindings; scriptVersion=clear-sticky-keep-above-20260621
 dropman: claimed ... shown=... left visible
 dropman: hid ... shown=... hidden=...
 dropman: loaded app-persisted claim state for ...

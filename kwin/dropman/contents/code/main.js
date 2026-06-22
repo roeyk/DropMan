@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "visible-dropdown-focus-restore-20260621";
+const SCRIPT_VERSION = "clear-sticky-keep-above-20260621";
 
 const STATE = {
     UNCLAIMED: "unclaimed",
@@ -561,6 +561,8 @@ function prepareWindow(window, binding) {
     }
     if (hints.keepAbove === true) {
         trySet(window, "keepAbove", true);
+    } else {
+        trySet(window, "keepAbove", false);
     }
     if (hints.skipTaskbar === true) {
         trySet(window, "skipTaskbar", true);
@@ -873,6 +875,7 @@ function recoverParkedWindow(binding) {
     binding.window = candidate.window;
     binding.shownGeometry = restoredGeometryFromHidden(candidate.hidden, binding, candidate.window);
     setBindingVisible(binding, false, "recovered parked");
+    prepareWindow(candidate.window, binding);
     tagDropManWindow(binding, candidate.window);
     watchClaimedWindow(binding, candidate.window);
     log("recovered parked " + binding.id
@@ -905,6 +908,7 @@ function recoverSoleMatchingWindow(binding) {
         binding,
         !isMinimized(window) && !isParkedOffscreen(binding.shownGeometry, binding, window),
         "recovered sole matching");
+    prepareWindow(window, binding);
     tagDropManWindow(binding, window);
     watchClaimedWindow(binding, window);
     log("recovered sole matching " + binding.id
@@ -959,6 +963,7 @@ function restoreAppPersistedClaim(binding) {
     binding.window = window;
     binding.shownGeometry = shown;
     setBindingVisible(binding, claim.visible === true, "restored persisted claim");
+    prepareWindow(window, binding);
     tagDropManWindow(binding, window);
 
     const liveGeometry = currentFrameGeometry(window);
@@ -1155,13 +1160,16 @@ function releaseBinding(binding) {
         return;
     }
 
+    const window = binding.window;
     if (!binding.visible && binding.shownGeometry) {
-        moveWindowToCurrentContext(binding.window, binding);
-        applyClaimedGeometry(binding.window, binding.shownGeometry);
-        activateWindow(binding.window, binding);
+        moveWindowToCurrentContext(window, binding);
+        applyClaimedGeometry(window, binding.shownGeometry);
+        activateWindow(window, binding);
     }
 
-    log("released " + binding.id + " from " + asString(binding.window.caption));
+    trySet(window, "keepAbove", false);
+
+    log("released " + binding.id + " from " + asString(window.caption));
     binding.window = null;
     binding.shownGeometry = null;
     binding.visible = false;
