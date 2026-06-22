@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "defer-focus-until-after-hide-20260622";
+const SCRIPT_VERSION = "shortcut-hide-like-taskbar-20260622";
 
 const STATE = {
     UNCLAIMED: "unclaimed",
@@ -1104,7 +1104,7 @@ function toggleBinding(binding) {
         const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
         setBindingVisible(binding, false, "profile shortcut hide");
         binding.suppressActivationUntil = nowMilliseconds() + 600;
-        applyClaimedGeometry(window, hidden);
+        applyRecoveredClaimedGeometry(window, hidden);
         log("hid " + binding.id
             + " shown=" + geometryText(binding.shownGeometry)
             + " hidden=" + geometryText(hidden));

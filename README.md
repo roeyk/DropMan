@@ -87,7 +87,7 @@ qdbus6 org.kde.KWin /KWin reconfigure
 Expected KWin logs for the preserve-geometry prototype include:
 
 ```text
-dropman: loaded 3 bindings; scriptVersion=defer-focus-until-after-hide-20260622
+dropman: loaded 3 bindings; scriptVersion=shortcut-hide-like-taskbar-20260622
 dropman: claimed ... shown=... left visible
 dropman: hid ... shown=... hidden=...
 dropman: loaded app-persisted claim state for ...
@@ -129,7 +129,7 @@ dropman-slide: animated ... from=... to=...
 ```
 
 The default experimental slide timing is tuned to feel close to Yakuake:
-170ms for show and 140ms for hide. These values are KWin effect config keys
+170ms for show and hide. These values are KWin effect config keys
 named `ShowDuration` and `HideDuration`.
 
 ## Configure Bindings

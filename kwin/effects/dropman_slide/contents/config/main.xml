@@ -12,7 +12,7 @@
             <default>170</default>
         </entry>
         <entry name="HideDuration" type="Int">
-            <default>140</default>
+            <default>170</default>
         </entry>
         <entry name="LargeEdgeFallback" type="Bool">
             <default>true</default>

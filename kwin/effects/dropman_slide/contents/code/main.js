@@ -114,7 +114,7 @@ class DropManSlideEffect {
         this.claimDetailsByUuid = {};
         this.claims = [];
         this.showDuration = 170;
-        this.hideDuration = 140;
+        this.hideDuration = 170;
 
         effect.configChanged.connect(this.loadConfig.bind(this));
         effects.windowAdded.connect(this.manage.bind(this));
@@ -132,7 +132,7 @@ class DropManSlideEffect {
         this.claimDetailsByUuid = {};
         this.claims = [];
         const configuredShowDuration = Number(effect.readConfig("ShowDuration", 170));
-        const configuredHideDuration = Number(effect.readConfig("HideDuration", 140));
+        const configuredHideDuration = Number(effect.readConfig("HideDuration", 170));
         this.largeEdgeFallback = effect.readConfig("LargeEdgeFallback", true) === true;
         this.showDuration = Math.max(animationTime(configuredShowDuration), 120);
         this.hideDuration = Math.max(animationTime(configuredHideDuration), 120);
