@@ -77,7 +77,7 @@ class DropManSlideEffect {
     constructor() {
         this.claimsByUuid = {};
         this.showDuration = 420;
-        this.hideDuration = 260;
+        this.hideDuration = 420;
 
         effect.configChanged.connect(this.loadConfig.bind(this));
         effects.windowAdded.connect(this.manage.bind(this));
@@ -93,9 +93,9 @@ class DropManSlideEffect {
     loadConfig() {
         this.claimsByUuid = {};
         const configuredShowDuration = Number(effect.readConfig("ShowDuration", 420));
-        const configuredHideDuration = Number(effect.readConfig("HideDuration", 260));
+        const configuredHideDuration = Number(effect.readConfig("HideDuration", 420));
         this.showDuration = Math.max(animationTime(configuredShowDuration), 260);
-        this.hideDuration = Math.max(animationTime(configuredHideDuration), 180);
+        this.hideDuration = Math.max(animationTime(configuredHideDuration), 260);
 
         const claimsJson = effect.readConfig("claimsJson", "");
         if (!claimsJson) {
@@ -205,7 +205,7 @@ class DropManSlideEffect {
 
         const hiding = this.isMovingFartherOffscreen(oldGeometry, newGeometry);
         const duration = hiding ? this.hideDuration : this.showDuration;
-        const curve = hiding ? QEasingCurve.InCubic : QEasingCurve.OutCubic;
+        const curve = hiding ? QEasingCurve.InOutCubic : QEasingCurve.OutCubic;
 
         window.dropmanSlideAnimation = animate({
             window: window,
@@ -231,7 +231,10 @@ class DropManSlideEffect {
             + " duration=" + duration
             + " hiding=" + hiding
             + " tracked=" + tracked
-            + " largeEdgeMove=" + largeEdgeMove);
+            + " largeEdgeMove=" + largeEdgeMove
+            + " class=" + propertyText(window, "resourceClass")
+            + " name=" + propertyText(window, "resourceName")
+            + " visible=" + window.visible);
     }
 }
 
