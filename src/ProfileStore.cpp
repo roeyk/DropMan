@@ -156,6 +156,22 @@ QVector<Profile> ProfileStore::defaultProfiles()
                 .captionFilter = QString(),
                 .captionExclude = QString()
             }
+        },
+        Profile{
+            .id = QStringLiteral("cool-retro-term"),
+            .name = QStringLiteral("Cool Retro Term"),
+            .shortcut = QStringLiteral("Meta+J"),
+            .claimShortcut = QStringLiteral("Meta+Shift+J"),
+            .edge = QStringLiteral("top"),
+            .mode = QStringLiteral("preserve_geometry"),
+            .widthPercent = 100,
+            .heightPercent = 45,
+            .match = MatchRules{
+                .resourceClass = QStringLiteral("cool-retro-term"),
+                .resourceName = QStringLiteral("cool-retro-term"),
+                .captionFilter = QString(),
+                .captionExclude = QString()
+            }
         }
     };
 }

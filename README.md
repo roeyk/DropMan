@@ -14,6 +14,7 @@ Example bindings:
 - `Meta+K`: Konsole
 - `Meta+F`: Firefox
 - `Meta+U`: Uplink
+- `Meta+J`: Cool Retro Term
 
 ## Status
 
@@ -199,6 +200,8 @@ The starter profiles use identity fields observed on Geshem:
 - Firefox: `resourceClass=firefox_firefox`, `resourceName=firefox`
 - Uplink: `resourceClass=Uplink`, `resourceName=Uplink`
 - Konsole: `resourceClass=org.kde.konsole`, `resourceName=konsole`
+- Cool Retro Term: `resourceClass=cool-retro-term`,
+  `resourceName=cool-retro-term`
 
 `widthPercent` and `heightPercent` remain in the prototype config as future
 profile metadata, but the default runtime mode does not use them to compute the

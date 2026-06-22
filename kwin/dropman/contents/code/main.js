@@ -71,6 +71,21 @@ const DEFAULT_CONFIG = {
                 resourceClass: "Uplink",
                 resourceName: "Uplink"
             }
+        },
+        {
+            id: "cool-retro-term",
+            name: "Cool Retro Term",
+            shortcut: "Meta+J",
+            edge: "top",
+            mode: "preserve_geometry",
+            widthPercent: 100,
+            heightPercent: 45,
+            claimShortcut: "Meta+Shift+J",
+            windowHints: {},
+            match: {
+                resourceClass: "cool-retro-term",
+                resourceName: "cool-retro-term"
+            }
         }
     ]
 };
