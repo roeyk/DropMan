@@ -180,6 +180,18 @@ When profiles are saved, the app also mirrors the same JSON into KWin's
 KWin component reads that mirrored config on load and falls back to packaged
 defaults if it is missing or invalid.
 
+If profile IDs are renamed, old runtime claims can remain in KWin config under
+stale IDs. Clean them with:
+
+```bash
+./scripts/clean-dropman-claims.py
+qdbus6 org.kde.KWin /KWin reconfigure
+```
+
+The cleanup script backs up `~/.config/kwinrc`, keeps only claims whose IDs
+still exist in `profilesJson`, and mirrors the cleaned claims to the DropMan
+Slide effect config groups.
+
 The app's claim button starts KWin's window picker, stores the picked window
 UUID and shown geometry in `Script-dropman` `claimsJson`, stages the picked
 window UUID for the resident script, then invokes `DropMan-ClaimPicked-<id>`
