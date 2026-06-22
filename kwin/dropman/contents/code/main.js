@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "narrow-control-window-guard-20260622";
+const SCRIPT_VERSION = "auto-adopt-safe-matches-20260622";
 
 const STATE = {
     UNCLAIMED: "unclaimed",
@@ -1274,6 +1274,20 @@ function releaseBinding(binding) {
     transitionBinding(binding, EVENT.RELEASE, { reason: "release" });
 }
 
+function autoAdoptSafeMatches(reason) {
+    bindings.forEach((binding) => {
+        if (binding.window) {
+            return;
+        }
+
+        if (recoverParkedWindow(binding) || recoverSoleMatchingWindow(binding)) {
+            log("auto-adopted " + binding.id + " reason=" + reason
+                + " state=" + binding.state
+                + " visible=" + binding.visible);
+        }
+    });
+}
+
 function registerBinding(config) {
     if (!config.id || !config.shortcut) {
         log("skipping incomplete binding");
@@ -1356,6 +1370,7 @@ function processWindow(window) {
             log("candidate for " + binding.id + ": " + asString(window.caption));
         }
     });
+    autoAdoptSafeMatches("window added");
 }
 
 function main() {
@@ -1365,6 +1380,7 @@ function main() {
 
     bindings.forEach(restoreAppPersistedClaim);
     claimPendingPickedWindow();
+    autoAdoptSafeMatches("startup");
     workspace.windowList().forEach(processWindow);
     workspace.windowAdded.connect(processWindow);
     rememberFocusWindow(workspace.activeWindow);

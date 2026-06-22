@@ -31,6 +31,11 @@ The central design rule is: match many, bind one. Class/resource matching may
 produce candidates, but an explicit claim step decides the single managed
 window for each profile.
 
+The resident KWin script can also auto-adopt a profile when there is exactly
+one safe matching window. If there are no matches or more than one match, it
+does not guess. App-picked claims remain the durable path because they persist
+the exact window UUID and shown geometry into KWin config.
+
 Default runtime behavior is preserve-current-window-geometry: claiming a
 window captures its current frame rectangle as the shown state and leaves it
 visible. The configured edge controls only the offscreen hide direction.
