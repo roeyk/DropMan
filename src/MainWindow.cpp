@@ -13,6 +13,7 @@
 #include <QProcess>
 #include <QPushButton>
 #include <QScreen>
+#include <QStringList>
 #include <QTableView>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -108,6 +109,7 @@ MainWindow::MainWindow(QWidget *parent)
     refreshSelectionState();
     appendLog(QStringLiteral("DropMan started. Design rule: match many, bind one."));
     m_backend.syncEffectClaimsFromScript();
+    syncClaimStatus();
 }
 
 Profile *MainWindow::selectedProfile()
@@ -210,7 +212,14 @@ void MainWindow::removeSelectedProfile()
 
 void MainWindow::syncClaimStatus()
 {
-    m_profiles.setClaimedProfileIds(m_backend.claimedProfileIds());
+    const QSet<QString> ids = m_backend.claimedProfileIds();
+    QStringList sortedIds(ids.begin(), ids.end());
+    sortedIds.sort();
+    appendLog(QStringLiteral("Runtime persisted claims: %1")
+                  .arg(sortedIds.isEmpty()
+                           ? QStringLiteral("<none>")
+                           : sortedIds.join(QStringLiteral(", "))));
+    m_profiles.setClaimedProfileIds(ids);
 }
 
 void MainWindow::showClaimNotice(const QString &profileName, const QString &windowCaption)
