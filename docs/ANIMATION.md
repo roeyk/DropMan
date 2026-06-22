@@ -103,9 +103,11 @@ Open questions for Geshem:
      window;
    - toggle the window and watch for `dropman-slide: animated ...` logs,
      especially `tracked=true` or `largeEdgeMove=true`.
-   The scripted effect currently uses explicit `Effect.Position` animation:
-   show uses a slower `OutCubic` curve, while hide uses a faster `InCubic`
-   curve to better match Yakuake's retract feel.
+   The scripted effect currently uses explicit `Effect.Translation` animation:
+   when the KWin script moves the real window frame, the effect starts drawing
+   it at the previous visual offset and animates that offset back to zero.
+   Show and hide currently use the same duration so top-edge windows are not
+   visually collapsed before the compositor has time to draw the slide.
 4. If scripted effects cannot provide enough control, move to a native KWin
    effect/runtime component.
 5. Add a config flag such as `animation.enabled`, defaulting to false until the

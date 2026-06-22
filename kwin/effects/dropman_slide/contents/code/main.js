@@ -211,14 +211,14 @@ class DropManSlideEffect {
             window: window,
             duration: duration,
             animations: [{
-                type: Effect.Position,
+                type: Effect.Translation,
                 from: {
-                    value1: oldGeometry.x + oldGeometry.width / 2,
-                    value2: oldGeometry.y + oldGeometry.height / 2
+                    value1: deltaX,
+                    value2: deltaY
                 },
                 to: {
-                    value1: newGeometry.x + newGeometry.width / 2,
-                    value2: newGeometry.y + newGeometry.height / 2
+                    value1: 0,
+                    value2: 0
                 },
                 curve: curve
             }]
