@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "minimized-claimed-window-20260621";
+const SCRIPT_VERSION = "minimized-slide-recover-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -864,8 +864,8 @@ function toggleBinding(binding) {
         moveWindowToCurrentContext(window, binding);
         if (liveMinimized) {
             const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
-            trySet(window, "frameGeometry", hidden);
             trySet(window, "minimized", false);
+            trySet(window, "frameGeometry", hidden);
             trySet(window, "frameGeometry", binding.shownGeometry);
             activateWindow(window, binding);
             binding.visible = true;
