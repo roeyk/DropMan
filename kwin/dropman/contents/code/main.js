@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "claim-notice-top-20260621";
+const SCRIPT_VERSION = "slide-effect-tags-20260621";
 
 const DEFAULT_CONFIG = {
     bindings: [
@@ -608,10 +608,21 @@ function watchClaimedWindow(binding, window) {
     }
 }
 
+function tagDropManWindow(binding, window) {
+    if (!window) {
+        return;
+    }
+
+    trySet(window, "dropmanDropdown", true);
+    trySet(window, "dropmanProfileId", binding.id);
+    trySet(window, "dropmanEdge", binding.edge || "top");
+}
+
 function finishClaimWindow(binding, window) {
     binding.window = window;
     binding.shownGeometry = currentFrameGeometry(window);
     binding.visible = true;
+    tagDropManWindow(binding, window);
 
     if (binding.shownGeometry) {
         log("claimed " + binding.id
@@ -666,6 +677,7 @@ function recoverParkedWindow(binding) {
     binding.window = candidate.window;
     binding.shownGeometry = restoredGeometryFromHidden(candidate.hidden, binding, candidate.window);
     binding.visible = false;
+    tagDropManWindow(binding, candidate.window);
     watchClaimedWindow(binding, candidate.window);
     log("recovered parked " + binding.id
         + " hidden=" + geometryText(candidate.hidden)
@@ -694,6 +706,7 @@ function recoverSoleMatchingWindow(binding) {
     binding.window = window;
     binding.shownGeometry = currentFrameGeometry(window);
     binding.visible = !isParkedOffscreen(binding.shownGeometry, binding, window);
+    tagDropManWindow(binding, window);
     watchClaimedWindow(binding, window);
     log("recovered sole matching " + binding.id
         + " visible=" + binding.visible
@@ -747,6 +760,7 @@ function restoreAppPersistedClaim(binding) {
     binding.window = window;
     binding.shownGeometry = shown;
     binding.visible = claim.visible === true;
+    tagDropManWindow(binding, window);
 
     const liveGeometry = currentFrameGeometry(window);
     if (isParkedOffscreen(liveGeometry, binding, window)) {

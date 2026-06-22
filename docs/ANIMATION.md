@@ -25,11 +25,17 @@ An experimental scripted effect now lives in:
 kwin/effects/dropman_slide
 ```
 
-The effect reads `claimsJson` from KWin's `Effect-dropman_slide` config group,
-tracks exact app-picked UUIDs, and animates frame-geometry changes for only
-those windows. The Qt app mirrors picked claims into both `Script-dropman` and
-`Effect-dropman_slide`; keyboard-only claims are still not durable because the
-shortcut script cannot write config.
+The effect first tries to track exact app-picked UUIDs. The Qt app mirrors
+picked claims into several KWin effect config groups, but Geshem showed that
+scripted effects do not necessarily expose those groups through
+`effect.readConfig()`. The KWin shortcut script also tags claimed window
+objects with DropMan metadata, and the effect treats that as the preferred
+runtime handoff when available.
+
+While that protocol is being validated, the effect also has an experimental
+fallback that animates large edge-to-edge geometry moves. This is intentionally
+for testing only; the final runtime should use an exact claim handoff, not
+broad movement heuristics.
 
 ## Target Runtime
 
@@ -93,9 +99,10 @@ Open questions for Geshem:
 3. Validate the scripted `dropman_slide` effect on Geshem:
    - install it with `scripts/install-kwin-effect.sh`;
    - enable it in Desktop Effects;
-   - claim a window through the app so `Effect-dropman_slide` receives the
-     UUID;
-   - toggle the window and watch for `dropman-slide: animated ...` logs.
+   - claim a window through the app so the KWin script tags the claimed
+     window;
+   - toggle the window and watch for `dropman-slide: animated ...` logs,
+     especially `tracked=true` or `largeEdgeMove=true`.
 4. If scripted effects cannot provide enough control, move to a native KWin
    effect/runtime component.
 5. Add a config flag such as `animation.enabled`, defaulting to false until the

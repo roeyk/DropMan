@@ -2,8 +2,9 @@
     DropMan KWin effect.
 
     Experimental compositor-side animation for exact app-picked DropMan
-    claims. This effect intentionally tracks only UUIDs mirrored by the
-    DropMan app into Effect-dropman_slide claimsJson.
+    claims. It prefers exact UUID/config or KWin-script window tags, and falls
+    back to large edge translations while the runtime protocol is still
+    experimental.
 */
 
 "use strict";
@@ -38,6 +39,18 @@ function propertyText(object, key) {
     }
 
     return "";
+}
+
+function propertyBool(object, key) {
+    try {
+        if (object && key in object) {
+            return object[key] === true || object[key] === "true";
+        }
+    } catch (error) {
+        log("could not read " + key + ": " + error);
+    }
+
+    return false;
 }
 
 function windowUuid(window) {
@@ -108,7 +121,21 @@ class DropManSlideEffect {
 
     isTracked(window) {
         const uuid = windowUuid(window);
-        return uuid && this.claimsByUuid[uuid] !== undefined;
+        return propertyBool(window, "dropmanDropdown")
+            || (uuid && this.claimsByUuid[uuid] !== undefined);
+    }
+
+    isLargeEdgeMove(oldGeometry, newGeometry) {
+        if (!oldGeometry || !newGeometry) {
+            return false;
+        }
+
+        const deltaX = Math.abs(oldGeometry.x - newGeometry.x);
+        const deltaY = Math.abs(oldGeometry.y - newGeometry.y);
+        const thresholdX = Math.max(240, Math.min(oldGeometry.width, newGeometry.width) * 0.35);
+        const thresholdY = Math.max(180, Math.min(oldGeometry.height, newGeometry.height) * 0.35);
+
+        return deltaX >= thresholdX || deltaY >= thresholdY;
     }
 
     manage(window) {
@@ -131,27 +158,34 @@ class DropManSlideEffect {
     }
 
     onWindowFrameGeometryChanged(window, oldGeometry) {
-        if (!this.isTracked(window)) {
-            return;
-        }
         if (!window.visible || !oldGeometry || !window.geometry) {
-            log("tracked geometry change ignored visible=" + window.visible
-                + " old=" + geometryText(oldGeometry)
-                + " new=" + geometryText(window.geometry)
-                + " caption=" + asString(window.caption));
+            if (this.isTracked(window)) {
+                log("tracked geometry change ignored visible=" + window.visible
+                    + " old=" + geometryText(oldGeometry)
+                    + " new=" + geometryText(window.geometry)
+                    + " caption=" + asString(window.caption));
+            }
             return;
         }
 
         const newGeometry = window.geometry;
+        const tracked = this.isTracked(window);
+        const largeEdgeMove = this.isLargeEdgeMove(oldGeometry, newGeometry);
+        if (!tracked && !largeEdgeMove) {
+            return;
+        }
+
         const deltaX = oldGeometry.x - newGeometry.x;
         const deltaY = oldGeometry.y - newGeometry.y;
 
         if (deltaX === 0 && deltaY === 0
             && oldGeometry.width === newGeometry.width
             && oldGeometry.height === newGeometry.height) {
-            log("tracked geometry change had no movement "
-                + geometryText(oldGeometry)
-                + " caption=" + asString(window.caption));
+            if (tracked) {
+                log("tracked geometry change had no movement "
+                    + geometryText(oldGeometry)
+                    + " caption=" + asString(window.caption));
+            }
             return;
         }
 
@@ -181,7 +215,9 @@ class DropManSlideEffect {
             + " from=" + geometryText(oldGeometry)
             + " to=" + geometryText(newGeometry)
             + " delta=" + deltaX + "," + deltaY
-            + " duration=" + this.duration);
+            + " duration=" + this.duration
+            + " tracked=" + tracked
+            + " largeEdgeMove=" + largeEdgeMove);
     }
 }
 
