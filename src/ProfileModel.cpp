@@ -1,6 +1,8 @@
 #include "ProfileModel.h"
 #include "ProfileStore.h"
 
+#include <QString>
+
 #include <utility>
 
 ProfileModel::ProfileModel(QObject *parent)
@@ -170,4 +172,69 @@ const Profile *ProfileModel::profileAt(int row) const
         return nullptr;
     }
     return &m_profiles[row];
+}
+
+int ProfileModel::addProfile()
+{
+    const int row = m_profiles.size();
+    beginInsertRows(QModelIndex(), row, row);
+    m_profiles.append(Profile{
+        .id = uniqueProfileId(QStringLiteral("profile")),
+        .name = QStringLiteral("New Profile"),
+        .shortcut = QString(),
+        .claimShortcut = QString(),
+        .edge = QStringLiteral("top"),
+        .mode = QStringLiteral("preserve_geometry"),
+        .widthPercent = 100,
+        .heightPercent = 45,
+        .match = MatchRules{}
+    });
+    endInsertRows();
+    return row;
+}
+
+bool ProfileModel::removeProfile(int row)
+{
+    if (row < 0 || row >= m_profiles.size()) {
+        return false;
+    }
+
+    beginRemoveRows(QModelIndex(), row, row);
+    m_profiles.removeAt(row);
+    endRemoveRows();
+    return true;
+}
+
+void ProfileModel::notifyProfileChanged(int row)
+{
+    if (row < 0 || row >= m_profiles.size()) {
+        return;
+    }
+
+    emit dataChanged(index(row, 0), index(row, columnCount() - 1), {Qt::DisplayRole, Qt::EditRole});
+}
+
+QString ProfileModel::uniqueProfileId(const QString &base) const
+{
+    auto exists = [this](const QString &candidate) {
+        for (const auto &profile : m_profiles) {
+            if (profile.id == candidate) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    if (!exists(base)) {
+        return base;
+    }
+
+    for (int suffix = 2; suffix < 10000; ++suffix) {
+        const QString candidate = QStringLiteral("%1-%2").arg(base).arg(suffix);
+        if (!exists(candidate)) {
+            return candidate;
+        }
+    }
+
+    return QStringLiteral("%1-%2").arg(base).arg(m_profiles.size() + 1);
 }

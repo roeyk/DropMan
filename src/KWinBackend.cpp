@@ -407,6 +407,27 @@ void KWinBackend::claimPickedWindow(Profile &profile)
         return;
     }
 
+    const QString resourceClass = pickedWindowField(pickerOutput, QStringLiteral("resourceClass"));
+    const QString resourceName = pickedWindowField(pickerOutput, QStringLiteral("resourceName"));
+    bool filledMatchFields = false;
+    if (profile.match.resourceClass.isEmpty()) {
+        profile.match.resourceClass = resourceClass;
+        filledMatchFields = true;
+    }
+    if (profile.match.resourceName.isEmpty()) {
+        profile.match.resourceName = resourceName;
+        filledMatchFields = true;
+    }
+    if ((profile.name.isEmpty() || profile.name == QStringLiteral("New Profile"))
+        && (!resourceName.isEmpty() || !resourceClass.isEmpty())) {
+        profile.name = resourceName.isEmpty() ? resourceClass : resourceName;
+        filledMatchFields = true;
+    }
+    if (filledMatchFields) {
+        emit logMessage(QStringLiteral("Filled match fields for %1: resourceClass=%2 resourceName=%3")
+                            .arg(profile.name, profile.match.resourceClass, profile.match.resourceName));
+    }
+
     if (!pickedWindowMatchesProfile(pickerOutput, profile)) {
         emit logMessage(QStringLiteral("Picked window does not match %1 profile: %2")
                             .arg(profile.name, pickedWindowSummary(pickerOutput)));

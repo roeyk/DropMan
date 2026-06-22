@@ -22,7 +22,12 @@ public:
     void setProfiles(QVector<Profile> profiles);
     Profile *profileAt(int row);
     const Profile *profileAt(int row) const;
+    int addProfile();
+    bool removeProfile(int row);
+    void notifyProfileChanged(int row);
 
 private:
+    QString uniqueProfileId(const QString &base) const;
+
     QVector<Profile> m_profiles;
 };

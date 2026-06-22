@@ -20,8 +20,11 @@ public:
 private:
     Profile *selectedProfile();
     void appendLog(const QString &message);
+    int selectedProfileRow() const;
     void loadProfiles();
     void saveProfiles();
+    void addProfile();
+    void removeSelectedProfile();
     void refreshSelectionState();
     void showClaimNotice(const QString &profileName, const QString &windowCaption);
 
@@ -30,6 +33,8 @@ private:
     QTableView *m_table = nullptr;
     QLabel *m_identity = nullptr;
     QPlainTextEdit *m_log = nullptr;
+    QPushButton *m_addButton = nullptr;
+    QPushButton *m_removeButton = nullptr;
     QPushButton *m_claimButton = nullptr;
     QPushButton *m_releaseButton = nullptr;
     QPushButton *m_toggleButton = nullptr;

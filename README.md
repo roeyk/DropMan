@@ -127,6 +127,10 @@ dropman-slide: loaded ... tracked claim UUIDs
 dropman-slide: animated ... from=... to=...
 ```
 
+The default experimental slide timing is tuned to feel close to Yakuake:
+220ms for show and 180ms for hide. These values are KWin effect config keys
+named `ShowDuration` and `HideDuration`.
+
 ## Configure Bindings
 
 The app now loads and saves editable profiles at the platform config location:
@@ -134,6 +138,13 @@ The app now loads and saves editable profiles at the platform config location:
 ```text
 ~/.config/dropman/profiles.json
 ```
+
+Use **Add profile** to create a new row and **Remove profile** to delete the
+selected row. For a new profile, click **Claim picked window** and choose the
+target window; DropMan fills empty `resourceClass` and `resourceName` match
+fields from KWin's picker output. Then set the profile id, shortcut, claim
+shortcut, and edge, click **Save profiles**, and reload the KWin script until
+live profile reload is implemented.
 
 The file uses the same profile shape as the KWin prototype:
 

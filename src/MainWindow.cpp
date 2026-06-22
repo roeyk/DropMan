@@ -40,12 +40,16 @@ MainWindow::MainWindow(QWidget *parent)
     auto *buttonLayout = new QHBoxLayout(buttonRow);
     buttonLayout->setContentsMargins(0, 0, 0, 0);
 
+    m_addButton = new QPushButton(QStringLiteral("Add profile"), buttonRow);
+    m_removeButton = new QPushButton(QStringLiteral("Remove profile"), buttonRow);
     m_claimButton = new QPushButton(QStringLiteral("Claim picked window"), buttonRow);
     m_releaseButton = new QPushButton(QStringLiteral("Release claimed window"), buttonRow);
     m_toggleButton = new QPushButton(QStringLiteral("Test toggle"), buttonRow);
     m_reloadButton = new QPushButton(QStringLiteral("Reload profiles"), buttonRow);
     m_saveButton = new QPushButton(QStringLiteral("Save profiles"), buttonRow);
 
+    buttonLayout->addWidget(m_addButton);
+    buttonLayout->addWidget(m_removeButton);
     buttonLayout->addWidget(m_claimButton);
     buttonLayout->addWidget(m_releaseButton);
     buttonLayout->addWidget(m_toggleButton);
@@ -66,9 +70,14 @@ MainWindow::MainWindow(QWidget *parent)
     connect(&m_backend, &KWinBackend::logMessage, this, &MainWindow::appendLog);
     connect(&m_backend, &KWinBackend::claimSucceeded, this, &MainWindow::showClaimNotice);
 
+    connect(m_addButton, &QPushButton::clicked, this, &MainWindow::addProfile);
+    connect(m_removeButton, &QPushButton::clicked, this, &MainWindow::removeSelectedProfile);
+
     connect(m_claimButton, &QPushButton::clicked, this, [this]() {
-        if (auto *profile = selectedProfile()) {
+        const int row = selectedProfileRow();
+        if (auto *profile = m_profiles.profileAt(row)) {
             m_backend.claimPickedWindow(*profile);
+            m_profiles.notifyProfileChanged(row);
         }
     });
 
@@ -99,16 +108,22 @@ MainWindow::MainWindow(QWidget *parent)
 
 Profile *MainWindow::selectedProfile()
 {
-    const auto rows = m_table->selectionModel()->selectedRows();
-    if (rows.isEmpty()) {
+    const int row = selectedProfileRow();
+    if (row < 0) {
         return nullptr;
     }
-    return m_profiles.profileAt(rows.first().row());
+    return m_profiles.profileAt(row);
 }
 
 void MainWindow::appendLog(const QString &message)
 {
     m_log->appendPlainText(message);
+}
+
+int MainWindow::selectedProfileRow() const
+{
+    const auto rows = m_table->selectionModel()->selectedRows();
+    return rows.isEmpty() ? -1 : rows.first().row();
 }
 
 void MainWindow::loadProfiles()
@@ -155,6 +170,37 @@ void MainWindow::saveProfiles()
     } else {
         appendLog(QStringLiteral("Could not start qdbus6 to reconfigure KWin"));
     }
+}
+
+void MainWindow::addProfile()
+{
+    const int row = m_profiles.addProfile();
+    m_table->selectRow(row);
+    m_table->scrollTo(m_profiles.index(row, 0));
+    m_table->edit(m_profiles.index(row, 0));
+    appendLog(QStringLiteral("Added profile row %1; edit match fields, then save profiles").arg(row + 1));
+    refreshSelectionState();
+}
+
+void MainWindow::removeSelectedProfile()
+{
+    const int row = selectedProfileRow();
+    if (row < 0) {
+        return;
+    }
+
+    const Profile *profile = m_profiles.profileAt(row);
+    const QString name = profile ? profile->name : QStringLiteral("profile");
+    if (!m_profiles.removeProfile(row)) {
+        appendLog(QStringLiteral("Could not remove selected profile"));
+        return;
+    }
+
+    if (m_profiles.rowCount() > 0) {
+        m_table->selectRow(qMin(row, m_profiles.rowCount() - 1));
+    }
+    appendLog(QStringLiteral("Removed profile %1; save profiles to persist").arg(name));
+    refreshSelectionState();
 }
 
 void MainWindow::showClaimNotice(const QString &profileName, const QString &windowCaption)
@@ -251,6 +297,7 @@ void MainWindow::showClaimNotice(const QString &profileName, const QString &wind
 void MainWindow::refreshSelectionState()
 {
     const bool hasProfile = selectedProfile() != nullptr;
+    m_removeButton->setEnabled(hasProfile);
     m_claimButton->setEnabled(hasProfile);
     m_releaseButton->setEnabled(hasProfile);
     m_toggleButton->setEnabled(hasProfile);
