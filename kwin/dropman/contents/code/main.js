@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "state-machine-skeleton-20260621";
+const SCRIPT_VERSION = "visible-shortcut-retracts-20260621";
 
 const STATE = {
     UNCLAIMED: "unclaimed",
@@ -943,18 +943,6 @@ function toggleBinding(binding) {
             setBindingVisible(binding, true, "summoned to current context");
             log("summoned visible " + binding.id
                 + " to current context hidden=" + geometryText(hidden)
-                + " shown=" + geometryText(binding.shownGeometry));
-            return;
-        }
-
-        if (workspace.activeWindow !== window) {
-            const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
-            applyClaimedGeometry(window, hidden);
-            applyClaimedGeometry(window, binding.shownGeometry);
-            activateWindow(window, binding);
-            setBindingVisible(binding, true, "summoned inactive visible window");
-            log("summoned visible " + binding.id
-                + " hidden=" + geometryText(hidden)
                 + " shown=" + geometryText(binding.shownGeometry));
             return;
         }
