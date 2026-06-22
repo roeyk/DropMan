@@ -166,7 +166,6 @@ bool isDropManControlPick(const QString &pickerOutput)
     const QString desktopFile = pickedWindowField(pickerOutput, QStringLiteral("desktopFile")).toLower();
 
     return caption == QStringLiteral("dropman")
-        || caption.startsWith(QStringLiteral("dropman :"))
         || resourceClass == QStringLiteral("dropman")
         || resourceName == QStringLiteral("dropman")
         || desktopFile == QStringLiteral("dropman");

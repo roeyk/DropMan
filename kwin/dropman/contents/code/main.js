@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "recover-visible-stops-toggle-20260622";
+const SCRIPT_VERSION = "narrow-control-window-guard-20260622";
 
 const STATE = {
     UNCLAIMED: "unclaimed",
@@ -533,7 +533,6 @@ function isDropManControlWindow(window) {
     const desktopFile = lower(window && window.desktopFile);
 
     return caption === "dropman"
-        || caption.indexOf("dropman :") === 0
         || resourceClass === "dropman"
         || resourceName === "dropman"
         || desktopFile === "dropman";
