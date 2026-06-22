@@ -15,7 +15,7 @@ public:
     QString activeWindowIdentity() const;
     QSet<QString> claimedProfileIds() const;
     void syncEffectClaimsFromScript();
-    void claimPickedWindow(Profile &profile);
+    bool claimPickedWindow(Profile &profile);
     void releaseClaim(Profile &profile);
     void testToggle(const Profile &profile);
 

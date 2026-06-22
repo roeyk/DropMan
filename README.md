@@ -147,10 +147,12 @@ The app now loads and saves editable profiles at the platform config location:
 
 Use **Add profile** to create a new row and **Remove profile** to delete the
 selected row. For a new profile, click **Claim picked window** and choose the
-target window; DropMan fills empty `resourceClass` and `resourceName` match
-fields from KWin's picker output. Then set the profile id, shortcut, claim
-shortcut, and edge, click **Save profiles**, and reload the KWin script until
-live profile reload is implemented.
+target window; DropMan fills generic profile ID/name fields and empty
+`resourceClass` and `resourceName` match fields from KWin's picker output. A
+successful picked claim immediately saves profiles, mirrors them to KWin, and
+requests a KWin reconfigure. Set or adjust the shortcut, claim shortcut, and
+edge before claiming when possible; otherwise edit them afterward and click
+**Save profiles**.
 
 The file uses the same profile shape as the KWin prototype:
 

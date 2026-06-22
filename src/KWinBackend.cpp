@@ -3,6 +3,7 @@
 #include <KConfig>
 #include <KConfigGroup>
 
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonParseError>
@@ -148,6 +149,59 @@ QJsonObject pickedWindowGeometry(const QString &pickerOutput)
     return geometry;
 }
 
+QJsonObject matchToJson(const MatchRules &match)
+{
+    QJsonObject object;
+    if (!match.resourceClass.isEmpty()) {
+        object.insert(QStringLiteral("resourceClass"), match.resourceClass);
+    }
+    if (!match.resourceName.isEmpty()) {
+        object.insert(QStringLiteral("resourceName"), match.resourceName);
+    }
+    if (!match.captionFilter.isEmpty()) {
+        object.insert(QStringLiteral("caption"), match.captionFilter);
+    }
+    if (!match.captionExclude.isEmpty()) {
+        object.insert(QStringLiteral("excludeCaption"), match.captionExclude);
+    }
+    return object;
+}
+
+QJsonObject profileToJson(const Profile &profile)
+{
+    QJsonObject object;
+    object.insert(QStringLiteral("id"), profile.id);
+    object.insert(QStringLiteral("name"), profile.name);
+    object.insert(QStringLiteral("shortcut"), profile.shortcut);
+    object.insert(QStringLiteral("claimShortcut"), profile.claimShortcut);
+    object.insert(QStringLiteral("edge"), profile.edge);
+    object.insert(QStringLiteral("mode"), profile.mode);
+    object.insert(QStringLiteral("widthPercent"), profile.widthPercent);
+    object.insert(QStringLiteral("heightPercent"), profile.heightPercent);
+    object.insert(QStringLiteral("match"), matchToJson(profile.match));
+    return object;
+}
+
+void upsertProfileBinding(QJsonObject *root, const Profile &profile)
+{
+    QJsonArray bindings = root->value(QStringLiteral("bindings")).toArray();
+    bool updated = false;
+    for (int index = 0; index < bindings.size(); ++index) {
+        QJsonObject binding = bindings.at(index).toObject();
+        if (binding.value(QStringLiteral("id")).toString() == profile.id) {
+            bindings.replace(index, profileToJson(profile));
+            updated = true;
+            break;
+        }
+    }
+    if (!updated) {
+        bindings.append(profileToJson(profile));
+    }
+
+    root->insert(QStringLiteral("schemaVersion"), 1);
+    root->insert(QStringLiteral("bindings"), bindings);
+}
+
 bool containsMatch(const QString &actual, const QString &expected)
 {
     return expected.isEmpty() || actual.contains(expected, Qt::CaseInsensitive);
@@ -156,6 +210,58 @@ bool containsMatch(const QString &actual, const QString &expected)
 bool containsExcluded(const QString &actual, const QString &expected)
 {
     return !expected.isEmpty() && actual.contains(expected, Qt::CaseInsensitive);
+}
+
+QString canonicalProfileId(const QString &pickerOutput)
+{
+    QString base = pickedWindowField(pickerOutput, QStringLiteral("desktopFile"));
+    if (base.isEmpty()) {
+        base = pickedWindowField(pickerOutput, QStringLiteral("resourceName"));
+    }
+    if (base.isEmpty()) {
+        base = pickedWindowField(pickerOutput, QStringLiteral("resourceClass"));
+    }
+    if (base.isEmpty()) {
+        base = pickedWindowCaptionValue(pickerOutput);
+    }
+
+    base = base.toLower();
+    base.replace(QRegularExpression(QStringLiteral(R"([^a-z0-9]+)")), QStringLiteral("-"));
+    base.replace(QRegularExpression(QStringLiteral(R"(^-+|-+$)")), QString());
+    return base.isEmpty() ? QStringLiteral("profile") : base;
+}
+
+QString profileDisplayName(const QString &pickerOutput)
+{
+    const QString desktopFile = pickedWindowField(pickerOutput, QStringLiteral("desktopFile"));
+    if (!desktopFile.isEmpty()) {
+        return desktopFile;
+    }
+
+    const QString resourceName = pickedWindowField(pickerOutput, QStringLiteral("resourceName"));
+    if (!resourceName.isEmpty()) {
+        return resourceName;
+    }
+
+    const QString resourceClass = pickedWindowField(pickerOutput, QStringLiteral("resourceClass"));
+    if (!resourceClass.isEmpty()) {
+        return resourceClass;
+    }
+
+    const QString caption = pickedWindowCaptionValue(pickerOutput);
+    return caption.isEmpty() ? QStringLiteral("New Profile") : caption;
+}
+
+bool isGenericProfileId(const QString &id)
+{
+    return id.trimmed().isEmpty()
+        || id == QStringLiteral("profile")
+        || id.startsWith(QStringLiteral("profile-"));
+}
+
+bool isGenericProfileName(const QString &name)
+{
+    return name.trimmed().isEmpty() || name == QStringLiteral("New Profile");
 }
 
 bool isDropManControlPick(const QString &pickerOutput)
@@ -218,25 +324,26 @@ bool writePendingClaim(const Profile &profile,
     KConfigGroup scriptGroup(&kwinConfig, QStringLiteral("Script-dropman"));
 
     const QString profilesJson = scriptGroup.readEntry(QStringLiteral("profilesJson"), QString());
+    QJsonObject profilesRoot;
     if (!profilesJson.isEmpty()) {
         QJsonParseError parseError;
         QJsonDocument document = QJsonDocument::fromJson(profilesJson.toUtf8(), &parseError);
         if (document.isObject()) {
-            QJsonObject root = document.object();
-            QJsonObject pendingClaim;
-            pendingClaim.insert(QStringLiteral("profileId"), profile.id);
-            pendingClaim.insert(QStringLiteral("windowUuid"), uuid);
-            root.insert(QStringLiteral("pendingClaim"), pendingClaim);
-            document.setObject(root);
-            scriptGroup.writeEntry(
-                QStringLiteral("profilesJson"),
-                QString::fromUtf8(document.toJson(QJsonDocument::Compact)));
+            profilesRoot = document.object();
         } else if (errorMessage) {
             *errorMessage = QStringLiteral("Could not parse mirrored profilesJson: %1")
                                 .arg(parseError.errorString());
             return false;
         }
     }
+    upsertProfileBinding(&profilesRoot, profile);
+    QJsonObject pendingClaim;
+    pendingClaim.insert(QStringLiteral("profileId"), profile.id);
+    pendingClaim.insert(QStringLiteral("windowUuid"), uuid);
+    profilesRoot.insert(QStringLiteral("pendingClaim"), pendingClaim);
+    scriptGroup.writeEntry(
+        QStringLiteral("profilesJson"),
+        QString::fromUtf8(QJsonDocument(profilesRoot).toJson(QJsonDocument::Compact)));
 
     QJsonObject claimsRoot;
     const QString claimsJson = scriptGroup.readEntry(QStringLiteral("claimsJson"), QString());
@@ -405,7 +512,7 @@ void KWinBackend::syncEffectClaimsFromScript()
     }
 }
 
-void KWinBackend::claimPickedWindow(Profile &profile)
+bool KWinBackend::claimPickedWindow(Profile &profile)
 {
     emit logMessage(QStringLiteral("Starting KWin window picker for %1").arg(profile.name));
 
@@ -413,13 +520,13 @@ void KWinBackend::claimPickedWindow(Profile &profile)
     const QString pickerOutput = runKWinWindowPicker(&error);
     if (pickerOutput.isEmpty()) {
         emit logMessage(QStringLiteral("KWin window picker failed: %1").arg(error));
-        return;
+        return false;
     }
 
     const QString uuid = pickedWindowUuid(pickerOutput);
     if (uuid.isEmpty()) {
         emit logMessage(QStringLiteral("KWin picker did not return a window uuid"));
-        return;
+        return false;
     }
 
     const QString caption = pickedWindowCaptionValue(pickerOutput);
@@ -431,12 +538,17 @@ void KWinBackend::claimPickedWindow(Profile &profile)
     if (isDropManControlPick(pickerOutput)) {
         emit logMessage(QStringLiteral("Refusing to claim DropMan's own control window for %1: %2")
                             .arg(profile.name, pickedWindowSummary(pickerOutput)));
-        return;
+        return false;
     }
 
     const QString resourceClass = pickedWindowField(pickerOutput, QStringLiteral("resourceClass"));
     const QString resourceName = pickedWindowField(pickerOutput, QStringLiteral("resourceName"));
+    const QString oldId = profile.id;
     bool filledMatchFields = false;
+    if (isGenericProfileId(profile.id)) {
+        profile.id = canonicalProfileId(pickerOutput);
+        filledMatchFields = true;
+    }
     if (profile.match.resourceClass.isEmpty()) {
         profile.match.resourceClass = resourceClass;
         filledMatchFields = true;
@@ -445,25 +557,27 @@ void KWinBackend::claimPickedWindow(Profile &profile)
         profile.match.resourceName = resourceName;
         filledMatchFields = true;
     }
-    if ((profile.name.isEmpty() || profile.name == QStringLiteral("New Profile"))
-        && (!resourceName.isEmpty() || !resourceClass.isEmpty())) {
-        profile.name = resourceName.isEmpty() ? resourceClass : resourceName;
+    if (isGenericProfileName(profile.name)) {
+        profile.name = profileDisplayName(pickerOutput);
         filledMatchFields = true;
     }
     if (filledMatchFields) {
-        emit logMessage(QStringLiteral("Filled match fields for %1: resourceClass=%2 resourceName=%3")
-                            .arg(profile.name, profile.match.resourceClass, profile.match.resourceName));
+        emit logMessage(QStringLiteral("Filled profile fields for %1: id=%2 resourceClass=%3 resourceName=%4")
+                            .arg(profile.name, profile.id, profile.match.resourceClass, profile.match.resourceName));
+        if (oldId != profile.id) {
+            emit logMessage(QStringLiteral("Renamed generic profile id %1 -> %2").arg(oldId, profile.id));
+        }
     }
 
     if (!pickedWindowMatchesProfile(pickerOutput, profile)) {
         emit logMessage(QStringLiteral("Picked window does not match %1 profile: %2")
                             .arg(profile.name, pickedWindowSummary(pickerOutput)));
-        return;
+        return false;
     }
 
     if (!writePendingClaim(profile, uuid, pickerOutput, &error)) {
         emit logMessage(QStringLiteral("Could not stage picked window claim: %1").arg(error));
-        return;
+        return false;
     }
     emit logMessage(QStringLiteral("Persisted picked claim for %1 into KWin config").arg(profile.name));
 
@@ -481,14 +595,17 @@ void KWinBackend::claimPickedWindow(Profile &profile)
         profile.claimed = true;
         emit logMessage(QStringLiteral("Invoked KWin action %1").arg(id));
         emit claimSucceeded(profile.name, caption.isEmpty() ? profile.name : caption);
+        return true;
     } else if (reconfigured) {
         profile.claimed = true;
         emit logMessage(QStringLiteral(
             "Staged claim for %1; resident KWin script should consume it on reconfigure")
                             .arg(profile.name));
         emit claimSucceeded(profile.name, caption.isEmpty() ? profile.name : caption);
+        return true;
     } else {
         emit logMessage(QStringLiteral("Could not invoke KWin action %1").arg(id));
+        return false;
     }
 }
 

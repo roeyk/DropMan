@@ -77,7 +77,11 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_claimButton, &QPushButton::clicked, this, [this]() {
         const int row = selectedProfileRow();
         if (auto *profile = m_profiles.profileAt(row)) {
-            m_backend.claimPickedWindow(*profile);
+            m_profiles.notifyProfileChanged(row);
+            if (m_backend.claimPickedWindow(*profile)) {
+                m_profiles.notifyProfileChanged(row);
+                saveProfiles();
+            }
             syncClaimStatus();
             m_profiles.notifyProfileChanged(row);
         }
