@@ -440,9 +440,11 @@ void KWinBackend::claimPickedWindow(Profile &profile)
     }
     emit logMessage(QStringLiteral("Persisted picked claim for %1 into KWin config").arg(profile.name));
 
+    bool reconfigured = false;
     if (!reconfigureKWin()) {
         emit logMessage(QStringLiteral("Could not request KWin reconfigure for pending picked claim"));
     } else {
+        reconfigured = true;
         emit logMessage(QStringLiteral("Requested KWin reconfigure for picked claim"));
         QThread::msleep(750);
     }
@@ -451,6 +453,12 @@ void KWinBackend::claimPickedWindow(Profile &profile)
     if (invokeKWinShortcut(id)) {
         profile.claimed = true;
         emit logMessage(QStringLiteral("Invoked KWin action %1").arg(id));
+        emit claimSucceeded(profile.name, caption.isEmpty() ? profile.name : caption);
+    } else if (reconfigured) {
+        profile.claimed = true;
+        emit logMessage(QStringLiteral(
+            "Staged claim for %1; resident KWin script should consume it on reconfigure")
+                            .arg(profile.name));
         emit claimSucceeded(profile.name, caption.isEmpty() ? profile.name : caption);
     } else {
         emit logMessage(QStringLiteral("Could not invoke KWin action %1").arg(id));

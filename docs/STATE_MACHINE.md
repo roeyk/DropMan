@@ -109,14 +109,15 @@ button.
 
 ## Implementation Direction
 
-The KWin script should replace ad hoc `binding.visible` updates with one
-central transition function, for example:
+The KWin script routes profile mutations through one central transition
+function:
 
 ```text
-transition(binding, event, payload)
+transitionBinding(binding, event, payload)
 ```
 
-That function should be the only place allowed to set:
+That function and the helper functions it owns are the only places that should
+set:
 
 - `binding.state`
 - `binding.window`

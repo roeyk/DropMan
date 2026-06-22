@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "shortcut-hide-like-taskbar-20260622";
+const SCRIPT_VERSION = "state-machine-dispatcher-20260622";
 
 const STATE = {
     UNCLAIMED: "unclaimed",
@@ -23,6 +23,18 @@ const STATE = {
     HIDING: "hiding",
     EXTERNAL_MINIMIZED: "external_minimized",
     LOST: "lost"
+};
+
+const EVENT = {
+    CLAIM: "claim",
+    RESTORE_CLAIM: "restore_claim",
+    RECOVER_PARKED: "recover_parked",
+    RECOVER_VISIBLE: "recover_visible",
+    HIDE: "hide",
+    SHOW: "show",
+    SYNC_HIDDEN: "sync_hidden",
+    RELEASE: "release",
+    WINDOW_CLOSED: "window_closed"
 };
 
 const DEFAULT_CONFIG = {
@@ -93,9 +105,6 @@ const DEFAULT_CONFIG = {
 const bindings = new Map();
 let runtimeConfig = null;
 let appPersistedClaims = {};
-let lastNonDropdownWindow = null;
-let lastActiveDropdownWindow = null;
-let previousActiveDropdownWindow = null;
 
 function log(message) {
     console.info(LOG_PREFIX + message);
@@ -572,22 +581,13 @@ function rememberFocusWindow(window) {
             });
 
             const binding = bindingForWindow(window);
-            const geometry = currentFrameGeometry(window);
-            if (binding
-                && binding.visible
-                && !isMinimized(window)
-                && !isParkedOffscreen(geometry, binding, window)) {
-                if (lastActiveDropdownWindow !== window) {
-                    previousActiveDropdownWindow = lastActiveDropdownWindow;
-                    lastActiveDropdownWindow = window;
-                }
+            if (binding && binding.visible) {
                 log("remembered dropdown focus window: " + binding.id);
             }
         }
         return;
     }
 
-    lastNonDropdownWindow = window;
     log("remembered focus window: " + asString(window.caption));
 }
 
@@ -719,80 +719,145 @@ function activateWindow(window, binding) {
         + " activeWindow=" + asString(workspace.activeWindow && workspace.activeWindow.caption));
 }
 
-function restoreFocusAfterHide(hiddenWindow, previousWindow, binding) {
-    if (!previousWindow || previousWindow === hiddenWindow) {
-        return;
-    }
-
-    trySet(previousWindow, "minimized", false);
-    const activated = tryCall(workspace, "activateWindow", previousWindow)
-        || trySet(workspace, "activeWindow", previousWindow)
-        || trySet(previousWindow, "active", true);
-    const raised = tryCall(workspace, "raiseWindow", previousWindow)
-        || tryCall(previousWindow, "raise");
-
-    log("restored focus after hiding " + binding.id
-        + " activated=" + activated
-        + " raised=" + raised
-        + " activeWindow=" + asString(workspace.activeWindow && workspace.activeWindow.caption));
+function attachClaim(binding, window, shownGeometry, visible, reason) {
+    binding.window = window;
+    binding.shownGeometry = shownGeometry || currentFrameGeometry(window);
+    prepareWindow(window, binding);
+    tagDropManWindow(binding, window);
+    setBindingVisible(binding, visible, reason);
+    watchClaimedWindow(binding, window);
 }
 
-function focusWindowWithoutRaise(window, binding) {
-    trySet(window, "minimized", false);
+function hideBinding(binding, reason, options) {
+    const window = binding.window;
+    if (!window) {
+        log("cannot hide unclaimed " + binding.id);
+        return false;
+    }
 
-    const focused = trySet(workspace, "activeWindow", window)
-        || trySet(window, "active", true);
+    const opts = options || {};
+    if (!binding.shownGeometry || opts.captureCurrent === true) {
+        const current = currentFrameGeometry(window);
+        if (current && !isParkedOffscreen(current, binding, window)) {
+            binding.shownGeometry = current;
+        }
+    }
 
-    log("focus without raise for " + binding.id
-        + " focused=" + focused
-        + " activeWindow=" + asString(workspace.activeWindow && workspace.activeWindow.caption));
-    return focused;
+    if (!binding.shownGeometry) {
+        log("cannot hide " + binding.id + ": no shown geometry");
+        setBindingVisible(binding, false, reason + " without geometry");
+        return false;
+    }
+
+    prepareWindow(window, binding);
+    const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
+    setBindingVisible(binding, false, reason);
+    binding.suppressActivationUntil = nowMilliseconds() + 600;
+    applyRecoveredClaimedGeometry(window, hidden);
+    log("hid " + binding.id
+        + " reason=" + reason
+        + " shown=" + geometryText(binding.shownGeometry)
+        + " hidden=" + geometryText(hidden));
+    return true;
 }
 
-function restorePreviousDropdownAfterHide(hiddenWindow, binding) {
-    const candidates = [previousActiveDropdownWindow, lastActiveDropdownWindow];
-    if (workspace.stackingOrder) {
-        for (let i = workspace.stackingOrder.length - 1; i >= 0; --i) {
-            candidates.push(workspace.stackingOrder[i]);
-        }
+function showBinding(binding, reason, options) {
+    const window = binding.window;
+    if (!window) {
+        log("cannot show unclaimed " + binding.id);
+        return false;
     }
 
-    bindings.forEach((candidateBinding) => {
-        candidates.push(candidateBinding.window);
-    });
-
-    const seen = [];
-    for (let i = 0; i < candidates.length; ++i) {
-        const candidate = candidates[i];
-        if (!candidate || candidate === hiddenWindow) {
-            continue;
-        }
-
-        if (seen.indexOf(candidate) !== -1) {
-            continue;
-        }
-        seen.push(candidate);
-
-        const candidateBinding = bindingForWindow(candidate);
-        if (!candidateBinding || !candidateBinding.visible) {
-            continue;
-        }
-
-        const geometry = currentFrameGeometry(candidate);
-        if (!geometry
-            || isMinimized(candidate)
-            || isParkedOffscreen(geometry, candidateBinding, candidate)
-            || !windowOnCurrentContext(candidate)) {
-            continue;
-        }
-
-        focusWindowWithoutRaise(candidate, candidateBinding);
-        previousActiveDropdownWindow = null;
-        lastActiveDropdownWindow = candidate;
-        log("restored dropdown focus after hiding " + binding.id
-            + " to " + candidateBinding.id);
-        return;
+    const opts = options || {};
+    if (!binding.shownGeometry) {
+        binding.shownGeometry = opts.fromHidden
+            ? restoredGeometryFromHidden(currentFrameGeometry(window), binding, window)
+            : currentFrameGeometry(window);
     }
+
+    if (!binding.shownGeometry) {
+        log("cannot show " + binding.id + ": no shown geometry");
+        return false;
+    }
+
+    prepareWindow(window, binding);
+    moveWindowToCurrentContext(window, binding);
+    if (opts.fromHidden || isMinimized(window)) {
+        const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
+        applyRecoveredClaimedGeometry(window, hidden);
+    }
+    applyRecoveredClaimedGeometry(window, binding.shownGeometry);
+    activateWindow(window, binding);
+    setBindingVisible(binding, true, reason);
+    log("showed " + binding.id
+        + " reason=" + reason
+        + " shown=" + geometryText(binding.shownGeometry));
+    return true;
+}
+
+function releaseBindingState(binding, reason) {
+    if (!binding.window) {
+        log("no claimed window to release for " + binding.id);
+        return false;
+    }
+
+    const window = binding.window;
+    if (!binding.visible && binding.shownGeometry) {
+        showBinding(binding, reason + " restore before release", { fromHidden: true });
+    }
+
+    trySet(window, "keepAbove", false);
+    log("released " + binding.id + " from " + asString(window.caption));
+    binding.window = null;
+    binding.shownGeometry = null;
+    binding.visible = false;
+    setBindingState(binding, STATE.UNCLAIMED, reason);
+    return true;
+}
+
+function transitionBinding(binding, event, payload) {
+    const data = payload || {};
+
+    if (event === EVENT.CLAIM
+        || event === EVENT.RESTORE_CLAIM
+        || event === EVENT.RECOVER_PARKED
+        || event === EVENT.RECOVER_VISIBLE) {
+        attachClaim(
+            binding,
+            data.window,
+            data.shownGeometry,
+            data.visible === true,
+            data.reason || event);
+        return true;
+    }
+
+    if (event === EVENT.HIDE) {
+        return hideBinding(binding, data.reason || event, data.options || {});
+    }
+
+    if (event === EVENT.SHOW) {
+        return showBinding(binding, data.reason || event, data.options || {});
+    }
+
+    if (event === EVENT.SYNC_HIDDEN) {
+        setBindingVisible(binding, false, data.reason || event);
+        return true;
+    }
+
+    if (event === EVENT.RELEASE) {
+        return releaseBindingState(binding, data.reason || event);
+    }
+
+    if (event === EVENT.WINDOW_CLOSED) {
+        binding.window = null;
+        binding.shownGeometry = null;
+        binding.visible = false;
+        setBindingState(binding, STATE.UNCLAIMED, data.reason || event);
+        return true;
+    }
+
+    log("unknown transition event for " + binding.id + ": " + event);
+    return false;
 }
 
 function parkExternallyMinimizedWindow(binding, window) {
@@ -806,12 +871,10 @@ function parkExternallyMinimizedWindow(binding, window) {
         return;
     }
 
-    const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
-    applyRecoveredClaimedGeometry(window, hidden);
-    setBindingVisible(binding, false, "taskbar minimize");
-    log("parked externally minimized " + binding.id
-        + " shown=" + geometryText(binding.shownGeometry)
-        + " hidden=" + geometryText(hidden));
+    transitionBinding(binding, EVENT.HIDE, {
+        reason: "taskbar minimize",
+        options: { captureCurrent: false }
+    });
 }
 
 function showRetractedWindowFromActivation(binding, window) {
@@ -827,21 +890,17 @@ function showRetractedWindowFromActivation(binding, window) {
         return;
     }
 
-    moveWindowToCurrentContext(window, binding);
-    applyRecoveredClaimedGeometry(window, binding.shownGeometry);
-    setBindingVisible(binding, true, "taskbar activation");
-    activateWindow(window, binding);
-    log("showed retracted " + binding.id
-        + " from activation shown=" + geometryText(binding.shownGeometry));
+    transitionBinding(binding, EVENT.SHOW, {
+        reason: "taskbar activation",
+        options: { fromHidden: true }
+    });
 }
 
 function watchClaimedWindow(binding, window) {
     if (window.closed) {
         window.closed.connect(() => {
             if (binding.window === window) {
-                binding.window = null;
-                binding.visible = false;
-                setBindingState(binding, STATE.UNCLAIMED, "window closed");
+                transitionBinding(binding, EVENT.WINDOW_CLOSED, { reason: "window closed" });
             }
         });
     }
@@ -867,11 +926,12 @@ function tagDropManWindow(binding, window) {
 }
 
 function finishClaimWindow(binding, window) {
-    binding.window = window;
-    binding.shownGeometry = currentFrameGeometry(window);
-    setBindingVisible(binding, true, "claim");
-    tagDropManWindow(binding, window);
-
+    transitionBinding(binding, EVENT.CLAIM, {
+        window: window,
+        shownGeometry: currentFrameGeometry(window),
+        visible: true,
+        reason: "claim"
+    });
     if (binding.shownGeometry) {
         log("claimed " + binding.id
             + " shown=" + geometryText(binding.shownGeometry)
@@ -880,11 +940,9 @@ function finishClaimWindow(binding, window) {
         log("claimed " + binding.id + " without changing geometry: no output geometry available");
     }
 
-    watchClaimedWindow(binding, window);
 }
 
 function claimWindow(binding, window) {
-    prepareWindow(window, binding);
     finishClaimWindow(binding, window);
 }
 
@@ -922,12 +980,12 @@ function recoverParkedWindow(binding) {
     }
 
     const candidate = candidates[0];
-    binding.window = candidate.window;
-    binding.shownGeometry = restoredGeometryFromHidden(candidate.hidden, binding, candidate.window);
-    setBindingVisible(binding, false, "recovered parked");
-    prepareWindow(candidate.window, binding);
-    tagDropManWindow(binding, candidate.window);
-    watchClaimedWindow(binding, candidate.window);
+    transitionBinding(binding, EVENT.RECOVER_PARKED, {
+        window: candidate.window,
+        shownGeometry: restoredGeometryFromHidden(candidate.hidden, binding, candidate.window),
+        visible: false,
+        reason: "recovered parked"
+    });
     log("recovered parked " + binding.id
         + " hidden=" + geometryText(candidate.hidden)
         + " shown=" + geometryText(binding.shownGeometry));
@@ -952,15 +1010,15 @@ function recoverSoleMatchingWindow(binding) {
     }
 
     const window = candidates[0];
-    binding.window = window;
-    binding.shownGeometry = currentFrameGeometry(window);
-    setBindingVisible(
-        binding,
-        !isMinimized(window) && !isParkedOffscreen(binding.shownGeometry, binding, window),
-        "recovered sole matching");
-    prepareWindow(window, binding);
-    tagDropManWindow(binding, window);
-    watchClaimedWindow(binding, window);
+    const shownGeometry = currentFrameGeometry(window);
+    const visible = !isMinimized(window)
+        && !isParkedOffscreen(shownGeometry, binding, window);
+    transitionBinding(binding, EVENT.RECOVER_VISIBLE, {
+        window: window,
+        shownGeometry: shownGeometry,
+        visible: visible,
+        reason: "recovered sole matching"
+    });
     log("recovered sole matching " + binding.id
         + " visible=" + binding.visible
         + " shown=" + geometryText(binding.shownGeometry)
@@ -1010,18 +1068,20 @@ function restoreAppPersistedClaim(binding) {
         return false;
     }
 
-    binding.window = window;
-    binding.shownGeometry = shown;
-    setBindingVisible(binding, claim.visible === true, "restored persisted claim");
-    prepareWindow(window, binding);
-    tagDropManWindow(binding, window);
+    transitionBinding(binding, EVENT.RESTORE_CLAIM, {
+        window: window,
+        shownGeometry: shown,
+        visible: claim.visible === true,
+        reason: "restored persisted claim"
+    });
 
     const liveGeometry = currentFrameGeometry(window);
     if (isMinimized(window) || isParkedOffscreen(liveGeometry, binding, window)) {
-        setBindingVisible(binding, false, "restored parked or minimized");
+        transitionBinding(binding, EVENT.SYNC_HIDDEN, {
+            reason: "restored parked or minimized"
+        });
     }
 
-    watchClaimedWindow(binding, window);
     log("restored app-persisted claim " + binding.id
         + " visible=" + binding.visible
         + " shown=" + geometryText(binding.shownGeometry)
@@ -1064,69 +1124,42 @@ function toggleBinding(binding) {
     const liveMinimized = isMinimized(window);
     const liveParkedOffscreen = isParkedOffscreen(liveGeometry, binding, window);
     if (liveMinimized || liveParkedOffscreen) {
-        setBindingVisible(binding, false, "live geometry hidden");
+        transitionBinding(binding, EVENT.SYNC_HIDDEN, {
+            reason: "live geometry hidden"
+        });
     }
 
     if (binding.visible) {
         const activeBinding = bindingForWindow(workspace.activeWindow);
         if (activeBinding && activeBinding !== binding && activeBinding.visible) {
-            moveWindowToCurrentContext(window, binding);
-            const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
-            applyClaimedGeometry(window, hidden);
-            applyClaimedGeometry(window, binding.shownGeometry);
-            activateWindow(window, binding);
-            setBindingVisible(binding, true, "summoned from behind another dropdown");
+            transitionBinding(binding, EVENT.SHOW, {
+                reason: "summoned from behind another dropdown",
+                options: { fromHidden: true }
+            });
             log("summoned covered " + binding.id
-                + " over " + activeBinding.id
-                + " hidden=" + geometryText(hidden)
-                + " shown=" + geometryText(binding.shownGeometry));
+                + " over " + activeBinding.id);
             return;
         }
 
         if (!windowOnCurrentContext(window)) {
-            moveWindowToCurrentContext(window, binding);
-            const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
-            applyRecoveredClaimedGeometry(window, hidden);
-            applyRecoveredClaimedGeometry(window, binding.shownGeometry);
-            activateWindow(window, binding);
-            setBindingVisible(binding, true, "summoned to current context");
+            transitionBinding(binding, EVENT.SHOW, {
+                reason: "summoned to current context",
+                options: { fromHidden: true }
+            });
             log("summoned visible " + binding.id
-                + " to current context hidden=" + geometryText(hidden)
-                + " shown=" + geometryText(binding.shownGeometry));
+                + " to current context");
             return;
         }
 
-        const current = liveGeometry || currentFrameGeometry(window);
-        if (current) {
-            binding.shownGeometry = current;
-        }
-
-        const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
-        setBindingVisible(binding, false, "profile shortcut hide");
-        binding.suppressActivationUntil = nowMilliseconds() + 600;
-        applyRecoveredClaimedGeometry(window, hidden);
-        log("hid " + binding.id
-            + " shown=" + geometryText(binding.shownGeometry)
-            + " hidden=" + geometryText(hidden));
+        transitionBinding(binding, EVENT.HIDE, {
+            reason: "profile shortcut hide",
+            options: { captureCurrent: true }
+        });
     } else {
-        moveWindowToCurrentContext(window, binding);
-        if (liveMinimized) {
-            const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
-            applyClaimedGeometry(window, hidden);
-            applyClaimedGeometry(window, binding.shownGeometry);
-            activateWindow(window, binding);
-            setBindingVisible(binding, true, "show minimized");
-            log("showed minimized " + binding.id
-                + " hidden=" + geometryText(hidden)
-                + " shown=" + geometryText(binding.shownGeometry));
-            return;
-        }
-        applyClaimedGeometry(window, binding.shownGeometry);
-        activateWindow(window, binding);
-        setBindingVisible(binding, true, "show hidden");
-        log("showed " + binding.id
-            + " shown=" + geometryText(binding.shownGeometry)
-            + " recoveredOffscreen=" + liveParkedOffscreen);
+        transitionBinding(binding, EVENT.SHOW, {
+            reason: liveMinimized ? "show minimized" : "show hidden",
+            options: { fromHidden: liveMinimized || liveParkedOffscreen }
+        });
     }
 }
 
@@ -1211,26 +1244,30 @@ function claimPickedWindow(binding) {
         + " uuid=" + picked.uuid);
 }
 
+function claimPendingPickedWindow() {
+    const pendingClaim = (runtimeConfig && runtimeConfig.pendingClaim) || {};
+    const profileId = asString(readConfig("pendingClaimProfileId", "") || pendingClaim.profileId);
+    if (!profileId) {
+        return false;
+    }
+
+    const binding = bindings.get(profileId);
+    if (!binding) {
+        log("pending picked claim has unknown profile " + profileId);
+        return false;
+    }
+
+    if (binding.window) {
+        return false;
+    }
+
+    const before = binding.window;
+    claimPickedWindow(binding);
+    return binding.window !== before && binding.window !== null;
+}
+
 function releaseBinding(binding) {
-    if (!binding.window) {
-        log("no claimed window to release for " + binding.id);
-        return;
-    }
-
-    const window = binding.window;
-    if (!binding.visible && binding.shownGeometry) {
-        moveWindowToCurrentContext(window, binding);
-        applyClaimedGeometry(window, binding.shownGeometry);
-        activateWindow(window, binding);
-    }
-
-    trySet(window, "keepAbove", false);
-
-    log("released " + binding.id + " from " + asString(window.caption));
-    binding.window = null;
-    binding.shownGeometry = null;
-    binding.visible = false;
-    setBindingState(binding, STATE.UNCLAIMED, "release");
+    transitionBinding(binding, EVENT.RELEASE, { reason: "release" });
 }
 
 function registerBinding(config) {
@@ -1314,6 +1351,7 @@ function main() {
     (runtimeConfig.bindings || []).forEach(registerBinding);
 
     bindings.forEach(restoreAppPersistedClaim);
+    claimPendingPickedWindow();
     workspace.windowList().forEach(processWindow);
     workspace.windowAdded.connect(processWindow);
     rememberFocusWindow(workspace.activeWindow);
