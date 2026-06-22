@@ -13,7 +13,7 @@
 */
 
 const LOG_PREFIX = "dropman: ";
-const SCRIPT_VERSION = "visible-shortcut-retracts-20260621";
+const SCRIPT_VERSION = "per-profile-focus-restore-20260621";
 
 const STATE = {
     UNCLAIMED: "unclaimed",
@@ -467,6 +467,34 @@ function isClaimedWindow(window) {
     return claimed;
 }
 
+function windowIsLive(window) {
+    if (!window) {
+        return false;
+    }
+
+    const windows = workspace.windowList();
+    for (let i = 0; i < windows.length; ++i) {
+        if (windows[i] === window) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function restorableFocusWindow(window, hiddenWindow) {
+    if (!window || window === hiddenWindow || !windowIsLive(window) || isDropManControlWindow(window)) {
+        return null;
+    }
+
+    return window;
+}
+
+function focusRestoreTarget(binding, hiddenWindow) {
+    return restorableFocusWindow(binding.previousFocusWindow, hiddenWindow)
+        || restorableFocusWindow(lastNonDropdownWindow, hiddenWindow);
+}
+
 function isDropManControlWindow(window) {
     const caption = lower(window && window.caption);
     const resourceClass = lower(window && window.resourceClass);
@@ -526,6 +554,17 @@ function rememberFocusWindow(window) {
 
     lastNonDropdownWindow = window;
     log("remembered focus window: " + asString(window.caption));
+}
+
+function rememberFocusForBinding(binding, targetWindow) {
+    const previous = workspace.activeWindow;
+    if (!previous || previous === targetWindow || isDropManControlWindow(previous)) {
+        binding.previousFocusWindow = null;
+        return;
+    }
+
+    binding.previousFocusWindow = previous;
+    log("remembered focus for " + binding.id + ": " + asString(previous.caption));
 }
 
 function prepareWindow(window, binding) {
@@ -705,6 +744,7 @@ function showRetractedWindowFromActivation(binding, window) {
     }
 
     moveWindowToCurrentContext(window, binding);
+    rememberFocusForBinding(binding, window);
     applyRecoveredClaimedGeometry(window, binding.shownGeometry);
     setBindingVisible(binding, true, "taskbar activation");
     activateWindow(window, binding);
@@ -935,6 +975,7 @@ function toggleBinding(binding) {
 
     if (binding.visible) {
         if (!windowOnCurrentContext(window)) {
+            rememberFocusForBinding(binding, window);
             moveWindowToCurrentContext(window, binding);
             const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
             applyRecoveredClaimedGeometry(window, hidden);
@@ -956,12 +997,14 @@ function toggleBinding(binding) {
         setBindingVisible(binding, false, "profile shortcut hide");
         binding.suppressActivationUntil = nowMilliseconds() + 600;
         applyClaimedGeometry(window, hidden);
+        restoreFocusAfterHide(window, focusRestoreTarget(binding, window), binding);
         log("hid " + binding.id
             + " shown=" + geometryText(binding.shownGeometry)
             + " hidden=" + geometryText(hidden));
     } else {
         moveWindowToCurrentContext(window, binding);
         if (liveMinimized) {
+            rememberFocusForBinding(binding, window);
             const hidden = hiddenGeometry(binding.shownGeometry, binding, window);
             applyClaimedGeometry(window, hidden);
             applyClaimedGeometry(window, binding.shownGeometry);
@@ -972,6 +1015,7 @@ function toggleBinding(binding) {
                 + " shown=" + geometryText(binding.shownGeometry));
             return;
         }
+        rememberFocusForBinding(binding, window);
         applyClaimedGeometry(window, binding.shownGeometry);
         activateWindow(window, binding);
         setBindingVisible(binding, true, "show hidden");
@@ -1099,6 +1143,7 @@ function registerBinding(config) {
         claimShortcut: config.claimShortcut,
         windowHints: config.windowHints || {},
         window: null,
+        previousFocusWindow: null,
         shownGeometry: null,
         state: STATE.UNCLAIMED,
         visible: false,

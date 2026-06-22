@@ -128,7 +128,7 @@ dropman-slide: animated ... from=... to=...
 ```
 
 The default experimental slide timing is tuned to feel close to Yakuake:
-220ms for show and 180ms for hide. These values are KWin effect config keys
+170ms for show and 140ms for hide. These values are KWin effect config keys
 named `ShowDuration` and `HideDuration`.
 
 ## Configure Bindings

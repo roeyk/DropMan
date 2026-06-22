@@ -9,10 +9,10 @@
             <default></default>
         </entry>
         <entry name="ShowDuration" type="Int">
-            <default>220</default>
+            <default>170</default>
         </entry>
         <entry name="HideDuration" type="Int">
-            <default>180</default>
+            <default>140</default>
         </entry>
         <entry name="LargeEdgeFallback" type="Bool">
             <default>true</default>
